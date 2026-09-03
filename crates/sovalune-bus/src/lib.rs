@@ -2,7 +2,7 @@ use async_nats::Client;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use tracing::{info, error};
+use tracing::info;
 
 #[derive(Debug, Clone)]
 pub enum Subject {

@@ -1,20 +1,20 @@
 use crate::{ScoredMemory, VectorMemoryStore};
 use sovalune_storage_client::{MemoryFilter, MemoryTier};
-use sqlx::PgPool;
 use uuid::Uuid;
 
 pub struct ContextWeaver {
     store: VectorMemoryStore,
     max_memory_tokens: usize,
+    #[allow(dead_code)]
     total_context_window: usize,
     recency_weight: f32,
     confidence_weight: f32,
 }
 
 impl ContextWeaver {
-    pub fn new(pool: PgPool, max_memory_tokens: usize, total_context_window: usize) -> Self {
+    pub fn new(store: VectorMemoryStore, max_memory_tokens: usize, total_context_window: usize) -> Self {
         Self {
-            store: VectorMemoryStore::new(pool),
+            store,
             max_memory_tokens,
             total_context_window,
             recency_weight: 0.3,
@@ -24,7 +24,7 @@ impl ContextWeaver {
     
     pub async fn build_context(
         &self,
-        query: &str,
+        _query: &str,
         query_embedding: &[f32],
         project_id: Uuid,
         history: &[(String, String)],

@@ -10,6 +10,7 @@ pub struct LearningCycleOrchestrator {
     repo: LearningCycleRepository,
     nats: Option<NatsClient>,
     max_retries: i32,
+    #[allow(dead_code)]
     min_confidence: f32,
     max_failed_cycles: i32,
 }

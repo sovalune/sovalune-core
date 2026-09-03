@@ -6,7 +6,7 @@ use uuid::Uuid;
 use std::sync::Arc;
 
 use crate::AppState;
-use sovalune_storage_client::{SessionRepository, CreateSession, CreateMessage};
+use sovalune_storage_client::SessionRepository;
 
 #[derive(Deserialize)]
 pub struct ListParams {

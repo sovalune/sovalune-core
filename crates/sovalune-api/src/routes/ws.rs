@@ -20,6 +20,7 @@ pub enum ClientMessage {
     #[serde(rename = "user_message")]
     UserMessage {
         session_id: String,
+        project_id: String,
         content: String,
     },
     #[serde(rename = "stop_generation")]
@@ -93,7 +94,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                 let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
                 
                 match client_msg {
-                    Ok(ClientMessage::UserMessage { session_id, content }) => {
+                    Ok(ClientMessage::UserMessage { session_id, project_id, content }) => {
                         info!("User message in session {}: {}", session_id, &content[..50.min(content.len())]);
                         
                         let inference_request_id = Uuid::new_v4().to_string();
@@ -101,6 +102,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         let request = InferenceRequest {
                             request_id: inference_request_id.clone(),
                             session_id: session_id.clone(),
+                            project_id: project_id.clone(),
                             prompt_context: PromptContext {
                                 system: "You are Sovalune, an AI assistant. Be helpful, accurate, and concise.".to_string(),
                                 memory_sections: Vec::new(),

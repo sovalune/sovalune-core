@@ -305,7 +305,7 @@ impl MemoryRepository {
         Ok(row)
     }
     
-    pub async fn promote_to_verified(&self, id: Uuid, evidence_id: Uuid) -> anyhow::Result<()> {
+    pub async fn promote_to_verified(&self, id: Uuid, _evidence_id: Uuid) -> anyhow::Result<()> {
         sqlx::query(
             r#"
             UPDATE memory_entries

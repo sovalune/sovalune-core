@@ -5,7 +5,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 pub struct ResearchingHandler {
+    #[allow(dead_code)]
     max_sources: usize,
+    #[allow(dead_code)]
     timeout_seconds: u64,
 }
 
