@@ -35,6 +35,7 @@ pub struct CreateMessage {
     pub request_id: Uuid,
 }
 
+#[derive(Clone)]
 pub struct SessionRepository {
     pool: PgPool,
 }

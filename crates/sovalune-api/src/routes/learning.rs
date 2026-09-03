@@ -45,10 +45,13 @@ pub async fn list(
                 .collect();
             Ok(Json(json!({ "data": response })))
         }
-        Err(e) => Err((
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": { "code": "INTERNAL_ERROR", "message": e.to_string() } })),
-        )),
+        Err(e) => {
+            let error_msg = e.to_string();
+            Err((
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": "INTERNAL_ERROR", "message": error_msg } })),
+            ))
+        }
     }
 }
 
@@ -68,10 +71,13 @@ pub async fn get(
             "created_at": cycle.created_at.to_rfc3339(),
             "updated_at": cycle.updated_at.to_rfc3339(),
         }))),
-        Err(e) => Err((
-            axum::http::StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "code": "NOT_FOUND", "message": e.to_string() } })),
-        )),
+        Err(e) => {
+            let error_msg = e.to_string();
+            Err((
+                axum::http::StatusCode::NOT_FOUND,
+                Json(json!({ "error": { "code": "NOT_FOUND", "message": error_msg } })),
+            ))
+        }
     }
 }
 
@@ -95,10 +101,13 @@ pub async fn evidence(
                 .collect();
             Ok(Json(json!({ "data": response })))
         }
-        Err(e) => Err((
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": { "code": "INTERNAL_ERROR", "message": e.to_string() } })),
-        )),
+        Err(e) => {
+            let error_msg = e.to_string();
+            Err((
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": "INTERNAL_ERROR", "message": error_msg } })),
+            ))
+        }
     }
 }
 
@@ -121,9 +130,12 @@ pub async fn test_results(
                 .collect();
             Ok(Json(json!({ "data": response })))
         }
-        Err(e) => Err((
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": { "code": "INTERNAL_ERROR", "message": e.to_string() } })),
-        )),
+        Err(e) => {
+            let error_msg = e.to_string();
+            Err((
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": "INTERNAL_ERROR", "message": error_msg } })),
+            ))
+        }
     }
 }

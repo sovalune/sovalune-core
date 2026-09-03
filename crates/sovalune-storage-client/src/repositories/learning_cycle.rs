@@ -60,6 +60,7 @@ pub struct CreateTestResult {
     pub detail: serde_json::Value,
 }
 
+#[derive(Clone)]
 pub struct LearningCycleRepository {
     pool: PgPool,
 }

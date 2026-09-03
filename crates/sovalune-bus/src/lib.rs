@@ -2,8 +2,7 @@ use async_nats::Client;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use tracing::{info, error};
-use uuid::Uuid;
+use tracing::info;
 
 #[derive(Debug, Clone)]
 pub enum Subject {
@@ -94,7 +93,7 @@ impl NatsClient {
     }
     
     pub async fn health_check(&self) -> bool {
-        self.client.connection_info().await.is_ok()
+        self.client.connection_state() == async_nats::connection::State::Connected
     }
     
     pub async fn publish_inference_request(&self, request: &InferenceRequest) -> anyhow::Result<()> {

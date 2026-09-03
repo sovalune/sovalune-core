@@ -2,7 +2,7 @@ use sovalune_storage_client::{MemoryRepository, MemoryEntry, MemoryFilter, Creat
 use sqlx::PgPool;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 pub mod store;
 pub mod context_weaver;

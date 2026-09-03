@@ -2,7 +2,6 @@ use crate::{ScoredMemory, VectorMemoryStore};
 use sovalune_storage_client::{MemoryFilter, MemoryTier};
 use sqlx::PgPool;
 use uuid::Uuid;
-use tracing::info;
 
 pub struct ContextWeaver {
     store: VectorMemoryStore,

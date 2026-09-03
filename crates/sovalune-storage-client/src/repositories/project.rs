@@ -23,6 +23,7 @@ pub struct UpdateProject {
     pub settings: Option<serde_json::Value>,
 }
 
+#[derive(Clone)]
 pub struct ProjectRepository {
     pool: PgPool,
 }

@@ -1,10 +1,9 @@
-use crate::{LearningCycle, LearningCycleStatus, StageTransition};
-use sovalune_storage_client::{LearningCycleRepository, CreateLearningCycle};
+use crate::{LearningCycle, LearningCycleStatus};
+use sovalune_storage_client::{LearningCycleRepository, CreateLearningCycle, CreateEvidence, CreateTestResult, LearningCycleEvidence, LearningCycleTestResult};
 use sovalune_bus::NatsClient;
 use sqlx::PgPool;
 use uuid::Uuid;
 use tracing::{info, warn, error};
-use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct LearningCycleOrchestrator {
@@ -206,7 +205,7 @@ impl LearningCycleOrchestrator {
         excerpt: &str,
         trust_tier: i32,
     ) -> anyhow::Result<()> {
-        self.repo.add_evidence(sovalune_storage_client::CreateEvidence {
+        self.repo.add_evidence(CreateEvidence {
             cycle_id,
             source_type: source_type.to_string(),
             source_url: source_url.map(|s| s.to_string()),
@@ -218,7 +217,7 @@ impl LearningCycleOrchestrator {
         Ok(())
     }
     
-    pub async fn get_evidence(&self, cycle_id: Uuid) -> anyhow::Result<Vec<sovalune_storage_client::LearningCycleEvidence>> {
+    pub async fn get_evidence(&self, cycle_id: Uuid) -> anyhow::Result<Vec<LearningCycleEvidence>> {
         self.repo.get_evidence(cycle_id).await
     }
     
@@ -229,7 +228,7 @@ impl LearningCycleOrchestrator {
         passed: bool,
         detail: serde_json::Value,
     ) -> anyhow::Result<()> {
-        self.repo.add_test_result(sovalune_storage_client::CreateTestResult {
+        self.repo.add_test_result(CreateTestResult {
             cycle_id,
             stage: stage.to_string(),
             passed,
@@ -240,7 +239,7 @@ impl LearningCycleOrchestrator {
         Ok(())
     }
     
-    pub async fn get_test_results(&self, cycle_id: Uuid) -> anyhow::Result<Vec<sovalune_storage_client::LearningCycleTestResult>> {
+    pub async fn get_test_results(&self, cycle_id: Uuid) -> anyhow::Result<Vec<LearningCycleTestResult>> {
         self.repo.get_test_results(cycle_id).await
     }
     
@@ -267,7 +266,7 @@ impl LearningCycleOrchestrator {
         self.publish_event("learning.cycle.stage_changed", cycle_id, project_id, payload).await;
     }
     
-    async fn publish_event(&self, subject: &str, cycle_id: &Uuid, project_id: &Uuid, payload: serde_json::Value) {
+    async fn publish_event(&self, subject: &str, _cycle_id: &Uuid, project_id: &Uuid, payload: serde_json::Value) {
         if let Some(nats) = &self.nats {
             let full_subject = format!("{}.{}", subject, project_id);
             if let Err(e) = nats.client().publish(full_subject, serde_json::to_vec(&payload).unwrap().into()).await {

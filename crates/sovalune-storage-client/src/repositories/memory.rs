@@ -49,6 +49,23 @@ pub struct MemoryEntry {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct SearchMemoryRow {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub tier: String,
+    pub content: String,
+    pub embedding: Option<String>,
+    pub metadata: serde_json::Value,
+    pub confidence_score: f32,
+    pub decay_score: f32,
+    pub archived: bool,
+    pub source_entry_ids: Option<Vec<Uuid>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub score: f32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateMemoryEntry {
     pub project_id: Uuid,
@@ -77,6 +94,7 @@ pub struct MemoryFilter {
     pub query: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct MemoryRepository {
     pool: PgPool,
 }
@@ -233,12 +251,33 @@ impl MemoryRepository {
         query.push_str(" ORDER BY score DESC");
         query.push_str(&format!(" LIMIT {}", top_k));
         
-        let rows = sqlx::query_as::<_, (MemoryEntry, f32)>(&query)
+        let rows = sqlx::query_as::<_, SearchMemoryRow>(&query)
             .bind(&embedding_json)
             .fetch_all(&self.pool)
             .await?;
         
-        Ok(rows)
+        let results: Vec<(MemoryEntry, f32)> = rows
+            .into_iter()
+            .map(|row| {
+                let entry = MemoryEntry {
+                    id: row.id,
+                    project_id: row.project_id,
+                    tier: row.tier,
+                    content: row.content,
+                    embedding: row.embedding,
+                    metadata: row.metadata,
+                    confidence_score: row.confidence_score,
+                    decay_score: row.decay_score,
+                    archived: row.archived,
+                    source_entry_ids: row.source_entry_ids,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                };
+                (entry, row.score)
+            })
+            .collect();
+        
+        Ok(results)
     }
     
     pub async fn consolidate(&self, source_ids: &[Uuid], consolidated_content: &str, embedding: &[f32], metadata: serde_json::Value) -> anyhow::Result<MemoryEntry> {

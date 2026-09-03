@@ -99,13 +99,12 @@ impl VectorMemoryStore {
             return Err(anyhow::anyhow!("No source entries to consolidate"));
         }
         
-        let sources: Vec<MemoryEntry> = futures::future::join_all(
-            source_ids.iter().map(|id| self.repo.get(*id))
-        )
-        .await
-        .into_iter()
-        .filter_map(|r| r.ok().flatten())
-        .collect();
+        let mut sources = Vec::new();
+        for id in source_ids {
+            if let Some(entry) = self.repo.get(*id).await? {
+                sources.push(entry);
+            }
+        }
         
         if sources.is_empty() {
             return Err(anyhow::anyhow!("No valid source entries found"));
@@ -132,7 +131,7 @@ impl VectorMemoryStore {
     pub async fn promote_to_verified(
         &self,
         id: Uuid,
-        evidence: Evidence,
+        _evidence: Evidence,
     ) -> anyhow::Result<()> {
         self.repo.promote_to_verified(id, Uuid::new_v4()).await?;
         info!("Promoted memory {} to verified", id);

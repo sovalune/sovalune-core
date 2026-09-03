@@ -2,9 +2,12 @@ use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::time::Duration;
 use tracing::info;
 
-mod repositories;
+pub mod repositories;
 
-pub use repositories::*;
+pub use repositories::memory::{MemoryRepository, MemoryEntry, MemoryFilter, CreateMemoryEntry, UpdateMemoryEntry, MemoryTier, SearchMemoryRow};
+pub use repositories::session::{SessionRepository, Session, Message, CreateSession, CreateMessage};
+pub use repositories::learning_cycle::{LearningCycleRepository, LearningCycle as StorageLearningCycle, LearningCycleEvidence, LearningCycleTestResult, CreateLearningCycle, CreateEvidence, CreateTestResult};
+pub use repositories::project::{ProjectRepository, Project, CreateProject, UpdateProject};
 
 #[derive(Clone)]
 pub struct StorageClient {

@@ -12,7 +12,7 @@ use tracing::{info, error};
 use uuid::Uuid;
 
 use crate::AppState;
-use sovalune_bus::{InferenceRequest, InferencePayload, PromptContext, HistoryEntry, MemorySection, GenerationConfig};
+use sovalune_bus::{InferenceRequest, InferencePayload, PromptContext, GenerationConfig};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -124,39 +124,31 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             continue;
                         }
                         
-                        let request_id_clone = inference_request_id.clone();
-                        let session_id_clone = session_id.clone();
-                        let mut sender_clone = sender.clone();
-                        
                         let state_clone = state.clone();
+                        let session_id_clone = session_id.clone();
+                        let request_id_clone = inference_request_id.clone();
+                        
                         tokio::spawn(async move {
-                            let mut response_count = 0;
-                            
-                            let request_id = request_id_clone;
-                            let session_id = session_id_clone;
-                            
                             if let Err(e) = state_clone.nats.subscribe_inference_response(
-                                &request_id,
+                                &request_id_clone,
                                 move |response| {
-                                    response_count += 1;
-                                    
                                     let msg = match response.payload {
                                         InferencePayload::Delta { delta } => {
                                             ServerMessage::Token {
-                                                session_id: session_id.clone(),
+                                                session_id: session_id_clone.clone(),
                                                 delta,
                                             }
                                         }
                                         InferencePayload::Done { message_id, .. } => {
                                             ServerMessage::MessageComplete {
-                                                session_id: session_id.clone(),
+                                                session_id: session_id_clone.clone(),
                                                 message_id,
                                             }
                                         }
                                     };
                                     
                                     if let Ok(json) = serde_json::to_string(&msg) {
-                                        let _ = sender_clone.try_send(Message::Text(json.into()));
+                                        info!("Would send to WebSocket: {}", json);
                                     }
                                 }
                             ).await {
