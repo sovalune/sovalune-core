@@ -25,6 +25,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 thiserror = "2"
 anyhow = "1"
 futures = "0.3"
+async-trait = "0.1"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
 
 # Sovalune crates
 sovalune-domain = { path = "crates/sovalune-domain" }

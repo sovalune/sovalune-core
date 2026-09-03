@@ -1,10 +1,11 @@
+pub mod orchestrator;
+pub mod stages;
+
+pub use orchestrator::LearningCycleOrchestrator;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-mod orchestrator;
-
-pub use orchestrator::LearningCycleOrchestrator;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LearningCycleStatus {
@@ -33,6 +34,24 @@ impl std::fmt::Display for LearningCycleStatus {
     }
 }
 
+impl std::str::FromStr for LearningCycleStatus {
+    type Err = anyhow::Error;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "detected" => Ok(LearningCycleStatus::Detected),
+            "researching" => Ok(LearningCycleStatus::Researching),
+            "verifying" => Ok(LearningCycleStatus::Verifying),
+            "practicing" => Ok(LearningCycleStatus::Practicing),
+            "testing" => Ok(LearningCycleStatus::Testing),
+            "applying" => Ok(LearningCycleStatus::Applying),
+            "completed" => Ok(LearningCycleStatus::Completed),
+            "failed" => Ok(LearningCycleStatus::Failed),
+            _ => Err(anyhow::anyhow!("Invalid status: {}", s)),
+        }
+    }
+}
+
 impl LearningCycleStatus {
     pub fn next(&self) -> Option<Self> {
         match self {
@@ -44,6 +63,10 @@ impl LearningCycleStatus {
             LearningCycleStatus::Applying => Some(LearningCycleStatus::Completed),
             _ => None,
         }
+    }
+    
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, LearningCycleStatus::Completed | LearningCycleStatus::Failed)
     }
 }
 
@@ -79,4 +102,12 @@ pub struct LearningCycleTestResult {
     pub passed: bool,
     pub detail: serde_json::Value,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StageTransition {
+    pub cycle_id: Uuid,
+    pub from_status: LearningCycleStatus,
+    pub to_status: LearningCycleStatus,
+    pub detail: serde_json::Value,
 }

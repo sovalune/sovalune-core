@@ -2,6 +2,10 @@ use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::time::Duration;
 use tracing::info;
 
+mod repositories;
+
+pub use repositories::*;
+
 #[derive(Clone)]
 pub struct StorageClient {
     pool: PgPool,
@@ -10,8 +14,8 @@ pub struct StorageClient {
 impl StorageClient {
     pub async fn new(database_url: &str) -> anyhow::Result<Self> {
         let pool = PgPoolOptions::new()
-            .max_connections(5)
-            .acquire_timeout(Duration::from_secs(3))
+            .max_connections(20)
+            .acquire_timeout(Duration::from_secs(5))
             .connect(database_url)
             .await?;
         
@@ -25,23 +29,11 @@ impl StorageClient {
     }
     
     pub async fn run_migrations(&self) -> anyhow::Result<()> {
-        // Run individual migrations from storage-schema
-        let migrations = [
-            include_str!("../../sovalune-storage-schema/migrations/001_extensions.sql"),
-            include_str!("../../sovalune-storage-schema/migrations/002_projects.sql"),
-            include_str!("../../sovalune-storage-schema/migrations/003_sessions_messages.sql"),
-            include_str!("../../sovalune-storage-schema/migrations/004_memory_entries.sql"),
-            include_str!("../../sovalune-storage-schema/migrations/005_learning_cycles.sql"),
-            include_str!("../../sovalune-storage-schema/migrations/006_training_artifacts.sql"),
-            include_str!("../../sovalune-storage-schema/migrations/007_rls_policies.sql"),
-        ];
+        sqlx::migrate!("../sovalune-storage-schema/migrations")
+            .run(&self.pool)
+            .await?;
         
-        for (i, migration) in migrations.iter().enumerate() {
-            sqlx::query(migration).execute(&self.pool).await?;
-            info!("Applied migration {}", i + 1);
-        }
-        
-        info!("All migrations completed");
+        info!("Migrations completed");
         Ok(())
     }
     
