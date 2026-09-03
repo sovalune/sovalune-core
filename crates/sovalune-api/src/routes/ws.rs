@@ -12,6 +12,7 @@ use tracing::{info, error};
 use uuid::Uuid;
 
 use crate::AppState;
+use sovalune_bus::{InferenceRequest, InferencePayload, PromptContext, HistoryEntry, MemorySection, GenerationConfig};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -95,30 +96,76 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                     Ok(ClientMessage::UserMessage { session_id, content }) => {
                         info!("User message in session {}: {}", session_id, &content[..50.min(content.len())]);
                         
-                        // TODO: Send to NATS for inference
-                        // For now, echo back
-                        let response = ServerMessage::Token {
+                        let inference_request_id = Uuid::new_v4().to_string();
+                        
+                        let request = InferenceRequest {
+                            request_id: inference_request_id.clone(),
                             session_id: session_id.clone(),
-                            delta: format!("Echo: {}", content),
+                            prompt_context: PromptContext {
+                                system: "You are Sovalune, an AI assistant. Be helpful, accurate, and concise.".to_string(),
+                                memory_sections: Vec::new(),
+                                history: Vec::new(),
+                            },
+                            generation_config: GenerationConfig {
+                                max_tokens: 2048,
+                                temperature: 0.7,
+                            },
                         };
                         
-                        if let Ok(json) = serde_json::to_string(&response) {
-                            let _ = sender.send(Message::Text(json.into())).await;
+                        if let Err(e) = state.nats.publish_inference_request(&request).await {
+                            error!("Failed to publish inference request: {}", e);
+                            let err = ServerMessage::Error {
+                                code: "INFERENCE_FAILED".to_string(),
+                                message: format!("Failed to start inference: {}", e),
+                            };
+                            if let Ok(json) = serde_json::to_string(&err) {
+                                let _ = sender.send(Message::Text(json.into())).await;
+                            }
+                            continue;
                         }
                         
-                        // Send completion
-                        let complete = ServerMessage::MessageComplete {
-                            session_id,
-                            message_id: Uuid::new_v4().to_string(),
-                        };
+                        let request_id_clone = inference_request_id.clone();
+                        let session_id_clone = session_id.clone();
+                        let mut sender_clone = sender.clone();
                         
-                        if let Ok(json) = serde_json::to_string(&complete) {
-                            let _ = sender.send(Message::Text(json.into())).await;
-                        }
+                        let state_clone = state.clone();
+                        tokio::spawn(async move {
+                            let mut response_count = 0;
+                            
+                            let request_id = request_id_clone;
+                            let session_id = session_id_clone;
+                            
+                            if let Err(e) = state_clone.nats.subscribe_inference_response(
+                                &request_id,
+                                move |response| {
+                                    response_count += 1;
+                                    
+                                    let msg = match response.payload {
+                                        InferencePayload::Delta { delta } => {
+                                            ServerMessage::Token {
+                                                session_id: session_id.clone(),
+                                                delta,
+                                            }
+                                        }
+                                        InferencePayload::Done { message_id, .. } => {
+                                            ServerMessage::MessageComplete {
+                                                session_id: session_id.clone(),
+                                                message_id,
+                                            }
+                                        }
+                                    };
+                                    
+                                    if let Ok(json) = serde_json::to_string(&msg) {
+                                        let _ = sender_clone.try_send(Message::Text(json.into()));
+                                    }
+                                }
+                            ).await {
+                                error!("Failed to subscribe to inference response: {}", e);
+                            }
+                        });
                     }
                     Ok(ClientMessage::StopGeneration { session_id }) => {
                         info!("Stop generation for session {}", session_id);
-                        // TODO: Cancel ongoing generation
                     }
                     Err(e) => {
                         error!("Invalid message format: {}", e);
