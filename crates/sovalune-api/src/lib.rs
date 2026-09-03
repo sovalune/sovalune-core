@@ -3,6 +3,8 @@ pub mod routes;
 use axum::{routing::get, Router};
 use sovalune_bus::NatsClient;
 use sovalune_storage_client::StorageClient;
+use sovalune_vector_memory::VectorMemoryStore;
+use sovalune_self_learning::LearningCycleOrchestrator;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -11,6 +13,8 @@ use tower_http::trace::TraceLayer;
 pub struct AppState {
     pub storage: StorageClient,
     pub nats: NatsClient,
+    pub vector_memory: VectorMemoryStore,
+    pub learning: LearningCycleOrchestrator,
 }
 
 pub fn create_router(state: AppState) -> Router {
@@ -26,6 +30,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/v1/sessions", get(routes::sessions::list))
         .route("/api/v1/memory", get(routes::memory::list))
         .route("/api/v1/learning-cycles", get(routes::learning::list))
+        .route("/ws/chat", get(routes::ws::ws_handler))
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(Arc::new(state))

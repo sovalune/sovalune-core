@@ -6,6 +6,8 @@ members = [
     "crates/sovalune-storage-client",
     "crates/sovalune-bus",
     "crates/sovalune-config",
+    "crates/sovalune-vector-memory",
+    "crates/sovalune-self-learning",
     "bin/sovalune-server",
 ]
 
@@ -22,6 +24,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 thiserror = "2"
 anyhow = "1"
+futures = "0.3"
 
 # Sovalune crates
 sovalune-domain = { path = "crates/sovalune-domain" }
@@ -29,3 +32,5 @@ sovalune-storage-client = { path = "crates/sovalune-storage-client" }
 sovalune-bus = { path = "crates/sovalune-bus" }
 sovalune-config = { path = "crates/sovalune-config" }
 sovalune-api = { path = "crates/sovalune-api" }
+sovalune-vector-memory = { path = "crates/sovalune-vector-memory" }
+sovalune-self-learning = { path = "crates/sovalune-self-learning" }

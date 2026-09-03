@@ -2,6 +2,8 @@ use sovalune_api::{create_router, AppState};
 use sovalune_bus::NatsClient;
 use sovalune_config::AppConfig;
 use sovalune_storage_client::StorageClient;
+use sovalune_vector_memory::VectorMemoryStore;
+use sovalune_self_learning::LearningCycleOrchestrator;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -34,10 +36,20 @@ async fn main() -> anyhow::Result<()> {
     let nats = NatsClient::new(&config.nats_url).await?;
     info!("Connected to NATS");
 
+    // Initialize vector memory store
+    let vector_memory = VectorMemoryStore::new(storage.pool().clone());
+    info!("Vector memory store initialized");
+
+    // Initialize learning cycle orchestrator
+    let learning = LearningCycleOrchestrator::new(storage.pool().clone());
+    info!("Learning cycle orchestrator initialized");
+
     // Create app state
     let state = AppState {
         storage,
         nats,
+        vector_memory,
+        learning,
     };
 
     // Create router

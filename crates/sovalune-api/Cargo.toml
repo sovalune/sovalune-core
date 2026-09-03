@@ -14,3 +14,5 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 tower = { version = "0.5", features = ["util"] }
+futures = "0.3"
+uuid = { workspace = true }

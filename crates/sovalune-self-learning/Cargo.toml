@@ -1,0 +1,16 @@
+[package]
+name = "sovalune-self-learning"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sovalune-domain = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
