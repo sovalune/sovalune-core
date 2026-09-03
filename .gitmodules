@@ -16,3 +16,6 @@
 [submodule "crates/sovalune-storage-schema"]
 	path = crates/sovalune-storage-schema
 	url = https://github.com/sovalune/sovalune-storage-schema.git
+[submodule "docs"]
+	path = docs
+	url = https://github.com/sovalune/sovalune-docs.git
