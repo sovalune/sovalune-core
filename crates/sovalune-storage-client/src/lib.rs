@@ -25,11 +25,23 @@ impl StorageClient {
     }
     
     pub async fn run_migrations(&self) -> anyhow::Result<()> {
-        sqlx::migrate!("../sovalune-storage-schema/migrations")
-            .run(&self.pool)
-            .await?;
+        // Run individual migrations from storage-schema
+        let migrations = [
+            include_str!("../../sovalune-storage-schema/migrations/001_extensions.sql"),
+            include_str!("../../sovalune-storage-schema/migrations/002_projects.sql"),
+            include_str!("../../sovalune-storage-schema/migrations/003_sessions_messages.sql"),
+            include_str!("../../sovalune-storage-schema/migrations/004_memory_entries.sql"),
+            include_str!("../../sovalune-storage-schema/migrations/005_learning_cycles.sql"),
+            include_str!("../../sovalune-storage-schema/migrations/006_training_artifacts.sql"),
+            include_str!("../../sovalune-storage-schema/migrations/007_rls_policies.sql"),
+        ];
         
-        info!("Migrations completed");
+        for (i, migration) in migrations.iter().enumerate() {
+            sqlx::query(migration).execute(&self.pool).await?;
+            info!("Applied migration {}", i + 1);
+        }
+        
+        info!("All migrations completed");
         Ok(())
     }
     
