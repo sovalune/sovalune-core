@@ -32,9 +32,8 @@ impl StorageClient {
     }
     
     pub async fn run_migrations(&self) -> anyhow::Result<()> {
-        sovalune_storage_schema::MIGRATIONS
-            .run(&self.pool)
-            .await?;
+        let migrator = sovalune_storage_schema::get_migrator();
+        migrator.run(&self.pool).await?;
         
         info!("Migrations completed");
         Ok(())
