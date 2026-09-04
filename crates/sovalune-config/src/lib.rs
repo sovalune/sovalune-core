@@ -22,8 +22,9 @@ pub struct AppConfig {
 impl AppConfig {
     pub fn from_env() -> anyhow::Result<Self> {
         Ok(Self {
-            storage_url: std::env::var("SOVALUNE_STORAGE_URL")
-                .unwrap_or_else(|_| "postgres://sovalune:sovalune_dev_password@localhost:5432/sovalune".to_string()),
+            storage_url: std::env::var("SOVALUNE_STORAGE_URL").unwrap_or_else(|_| {
+                "postgres://sovalune:sovalune_dev_password@localhost:5432/sovalune".to_string()
+            }),
             nats_url: std::env::var("SOVALUNE_NATS_URL")
                 .unwrap_or_else(|_| "nats://localhost:4222".to_string()),
             server_host: std::env::var("SOVALUNE_SERVER_HOST")

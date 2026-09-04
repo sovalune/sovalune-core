@@ -1,12 +1,12 @@
-use axum::extract::{Path, State, Query};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use uuid::Uuid;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::AppState;
-use sovalune_storage_client::{MemoryRepository, MemoryFilter, UpdateMemoryEntry};
+use sovalune_storage_client::{MemoryFilter, MemoryRepository, UpdateMemoryEntry};
 
 #[derive(Deserialize)]
 pub struct ListParams {
@@ -24,9 +24,9 @@ pub async fn list(
     let repo = MemoryRepository::new(state.storage.pool().clone());
     let limit = params.limit.unwrap_or(20).min(100);
     let offset = params.offset.unwrap_or(0);
-    
+
     let tier = params.tier.and_then(|t| t.parse().ok());
-    
+
     let filter = MemoryFilter {
         project_id: params.project_id,
         tier,
@@ -34,23 +34,25 @@ pub async fn list(
         archived: Some(false),
         query: params.q,
     };
-    
+
     match repo.list(filter, limit, offset).await {
         Ok(entries) => {
             let response: Vec<Value> = entries
                 .into_iter()
-                .map(|e| json!({
-                    "id": e.id,
-                    "project_id": e.project_id,
-                    "tier": e.tier,
-                    "content": e.content,
-                    "metadata": e.metadata,
-                    "confidence_score": e.confidence_score,
-                    "decay_score": e.decay_score,
-                    "archived": e.archived,
-                    "created_at": e.created_at.to_rfc3339(),
-                    "updated_at": e.updated_at.to_rfc3339(),
-                }))
+                .map(|e| {
+                    json!({
+                        "id": e.id,
+                        "project_id": e.project_id,
+                        "tier": e.tier,
+                        "content": e.content,
+                        "metadata": e.metadata,
+                        "confidence_score": e.confidence_score,
+                        "decay_score": e.decay_score,
+                        "archived": e.archived,
+                        "created_at": e.created_at.to_rfc3339(),
+                        "updated_at": e.updated_at.to_rfc3339(),
+                    })
+                })
                 .collect();
             Ok(Json(json!({ "data": response })))
         }
@@ -66,7 +68,7 @@ pub async fn get(
     Path(id): Path<Uuid>,
 ) -> Result<Json<Value>, (axum::http::StatusCode, Json<Value>)> {
     let repo = MemoryRepository::new(state.storage.pool().clone());
-    
+
     match repo.get(id).await {
         Ok(Some(entry)) => Ok(Json(json!({
             "id": entry.id,
@@ -98,14 +100,20 @@ pub async fn update(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, (axum::http::StatusCode, Json<Value>)> {
     let repo = MemoryRepository::new(state.storage.pool().clone());
-    
+
     let update = UpdateMemoryEntry {
-        content: body.get("content").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        content: body
+            .get("content")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
         metadata: body.get("metadata").cloned(),
-        confidence_score: body.get("confidence_score").and_then(|v| v.as_f64()).map(|f| f as f32),
+        confidence_score: body
+            .get("confidence_score")
+            .and_then(|v| v.as_f64())
+            .map(|f| f as f32),
         archived: body.get("archived").and_then(|v| v.as_bool()),
     };
-    
+
     match repo.update(id, update).await {
         Ok(Some(entry)) => Ok(Json(json!({
             "id": entry.id,
@@ -135,7 +143,7 @@ pub async fn delete(
     Path(id): Path<Uuid>,
 ) -> Result<Json<Value>, (axum::http::StatusCode, Json<Value>)> {
     let repo = MemoryRepository::new(state.storage.pool().clone());
-    
+
     match repo.delete(id).await {
         Ok(()) => Ok(Json(json!({ "status": "deleted" }))),
         Err(e) => Err((

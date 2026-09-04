@@ -1,7 +1,7 @@
-use sqlx::PgPool;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Project {
@@ -32,10 +32,10 @@ impl ProjectRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-    
+
     pub async fn create(&self, project: CreateProject) -> anyhow::Result<Project> {
         let id = Uuid::new_v4();
-        
+
         let row = sqlx::query_as::<_, Project>(
             r#"
             INSERT INTO projects (id, name, settings)
@@ -48,10 +48,10 @@ impl ProjectRepository {
         .bind(project.settings.unwrap_or(serde_json::json!({})))
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
+
     pub async fn get(&self, id: Uuid) -> anyhow::Result<Option<Project>> {
         let row = sqlx::query_as::<_, Project>(
             r#"
@@ -63,10 +63,10 @@ impl ProjectRepository {
         .bind(id)
         .fetch_optional(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
+
     pub async fn update(&self, id: Uuid, update: UpdateProject) -> anyhow::Result<Option<Project>> {
         if let Some(name) = update.name {
             sqlx::query("UPDATE projects SET name = $1 WHERE id = $2")
@@ -82,10 +82,10 @@ impl ProjectRepository {
                 .execute(&self.pool)
                 .await?;
         }
-        
+
         self.get(id).await
     }
-    
+
     pub async fn list(&self, limit: i64, offset: i64) -> anyhow::Result<Vec<Project>> {
         let rows = sqlx::query_as::<_, Project>(
             r#"
@@ -99,16 +99,16 @@ impl ProjectRepository {
         .bind(offset)
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows)
     }
-    
+
     pub async fn delete(&self, id: Uuid) -> anyhow::Result<()> {
         sqlx::query("DELETE FROM projects WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
             .await?;
-        
+
         Ok(())
     }
 }

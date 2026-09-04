@@ -1,7 +1,7 @@
-use sqlx::PgPool;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct LearningCycle {
@@ -69,10 +69,10 @@ impl LearningCycleRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-    
+
     pub async fn create(&self, cycle: CreateLearningCycle) -> anyhow::Result<LearningCycle> {
         let id = Uuid::new_v4();
-        
+
         let row = sqlx::query_as::<_, LearningCycle>(
             r#"
             INSERT INTO learning_cycles (id, project_id, status, origin_task_id)
@@ -85,10 +85,10 @@ impl LearningCycleRepository {
         .bind(cycle.origin_task_id)
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
+
     pub async fn get(&self, id: Uuid) -> anyhow::Result<Option<LearningCycle>> {
         let row = sqlx::query_as::<_, LearningCycle>(
             r#"
@@ -100,11 +100,16 @@ impl LearningCycleRepository {
         .bind(id)
         .fetch_optional(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
-    pub async fn update_status(&self, id: Uuid, status: &str, failure_reason: Option<&str>) -> anyhow::Result<()> {
+
+    pub async fn update_status(
+        &self,
+        id: Uuid,
+        status: &str,
+        failure_reason: Option<&str>,
+    ) -> anyhow::Result<()> {
         sqlx::query(
             r#"
             UPDATE learning_cycles
@@ -117,10 +122,10 @@ impl LearningCycleRepository {
         .bind(id)
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn increment_retry(&self, id: Uuid) -> anyhow::Result<()> {
         sqlx::query(
             r#"
@@ -132,10 +137,10 @@ impl LearningCycleRepository {
         .bind(id)
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn update_confidence(&self, id: Uuid, confidence_score: f32) -> anyhow::Result<()> {
         sqlx::query(
             r#"
@@ -148,11 +153,17 @@ impl LearningCycleRepository {
         .bind(id)
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
-    pub async fn list(&self, project_id: Option<Uuid>, status: Option<&str>, limit: i64, offset: i64) -> anyhow::Result<Vec<LearningCycle>> {
+
+    pub async fn list(
+        &self,
+        project_id: Option<Uuid>,
+        status: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> anyhow::Result<Vec<LearningCycle>> {
         let mut query = String::from(
             r#"
             SELECT id, project_id, status::text, origin_task_id, failure_reason, retry_count, confidence_score, created_at, updated_at
@@ -160,27 +171,30 @@ impl LearningCycleRepository {
             WHERE 1=1
             "#,
         );
-        
+
         if let Some(project_id) = project_id {
             query.push_str(&format!(" AND project_id = '{}'", project_id));
         }
         if let Some(status) = status {
             query.push_str(&format!(" AND status = '{}'", status));
         }
-        
+
         query.push_str(" ORDER BY created_at DESC");
         query.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
-        
+
         let rows = sqlx::query_as::<_, LearningCycle>(&query)
             .fetch_all(&self.pool)
             .await?;
-        
+
         Ok(rows)
     }
-    
-    pub async fn add_evidence(&self, evidence: CreateEvidence) -> anyhow::Result<LearningCycleEvidence> {
+
+    pub async fn add_evidence(
+        &self,
+        evidence: CreateEvidence,
+    ) -> anyhow::Result<LearningCycleEvidence> {
         let id = Uuid::new_v4();
-        
+
         let row = sqlx::query_as::<_, LearningCycleEvidence>(
             r#"
             INSERT INTO learning_cycle_evidence (id, cycle_id, source_type, source_url, excerpt, trust_tier)
@@ -196,10 +210,10 @@ impl LearningCycleRepository {
         .bind(evidence.trust_tier)
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
+
     pub async fn get_evidence(&self, cycle_id: Uuid) -> anyhow::Result<Vec<LearningCycleEvidence>> {
         let rows = sqlx::query_as::<_, LearningCycleEvidence>(
             r#"
@@ -212,13 +226,16 @@ impl LearningCycleRepository {
         .bind(cycle_id)
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows)
     }
-    
-    pub async fn add_test_result(&self, result: CreateTestResult) -> anyhow::Result<LearningCycleTestResult> {
+
+    pub async fn add_test_result(
+        &self,
+        result: CreateTestResult,
+    ) -> anyhow::Result<LearningCycleTestResult> {
         let id = Uuid::new_v4();
-        
+
         let row = sqlx::query_as::<_, LearningCycleTestResult>(
             r#"
             INSERT INTO learning_cycle_test_results (id, cycle_id, stage, passed, detail)
@@ -233,11 +250,14 @@ impl LearningCycleRepository {
         .bind(&result.detail)
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
-    pub async fn get_test_results(&self, cycle_id: Uuid) -> anyhow::Result<Vec<LearningCycleTestResult>> {
+
+    pub async fn get_test_results(
+        &self,
+        cycle_id: Uuid,
+    ) -> anyhow::Result<Vec<LearningCycleTestResult>> {
         let rows = sqlx::query_as::<_, LearningCycleTestResult>(
             r#"
             SELECT id, cycle_id, stage, passed, detail, created_at
@@ -249,10 +269,10 @@ impl LearningCycleRepository {
         .bind(cycle_id)
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows)
     }
-    
+
     pub async fn count_failed_recent(&self, project_id: Uuid, limit: i64) -> anyhow::Result<i64> {
         let row: (i64,) = sqlx::query_as(
             r#"
@@ -270,7 +290,7 @@ impl LearningCycleRepository {
         .bind(limit)
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row.0)
     }
 }

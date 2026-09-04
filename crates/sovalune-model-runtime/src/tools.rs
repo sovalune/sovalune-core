@@ -91,11 +91,7 @@ pub trait ToolExecutor: Send + Sync {
     async fn check_permission(&self, caller_id: &str) -> Result<(), ToolError>;
 
     /// Выполняет инструмент.
-    async fn execute(
-        &self,
-        call: &ToolCall,
-        caller_id: &str,
-    ) -> Result<ToolResult, ToolError>;
+    async fn execute(&self, call: &ToolCall, caller_id: &str) -> Result<ToolResult, ToolError>;
 }
 
 /// Реестр инструментов — управляет доступными инструментами.
@@ -147,11 +143,7 @@ impl ToolRegistry {
     }
 
     /// Выполняет вызов инструмента.
-    pub async fn execute(
-        &self,
-        call: &ToolCall,
-        caller_id: &str,
-    ) -> Result<ToolResult, ToolError> {
+    pub async fn execute(&self, call: &ToolCall, caller_id: &str) -> Result<ToolResult, ToolError> {
         let executor = self
             .tools
             .get(&call.name)
@@ -238,12 +230,9 @@ impl ToolCallManager {
     }
 
     /// Выполняет все ожидающие вызовы.
-    pub async fn execute_all(
-        &self,
-        caller_id: &str,
-    ) -> Vec<ToolResult> {
+    pub async fn execute_all(&self, caller_id: &str) -> Vec<ToolResult> {
         let mut results = Vec::new();
-        let mut calls = self.pending_calls.clone();
+        let calls = self.pending_calls.clone();
 
         for call in &calls {
             match self.registry.execute(call, caller_id).await {
@@ -278,17 +267,14 @@ pub struct ToolCallParser;
 
 impl ToolCallParser {
     /// Парсит tool calls из ответа OpenAI API.
-    pub fn parse_openai_tool_calls(
-        tool_calls: &[serde_json::Value],
-    ) -> Vec<ToolCall> {
+    pub fn parse_openai_tool_calls(tool_calls: &[serde_json::Value]) -> Vec<ToolCall> {
         tool_calls
             .iter()
             .filter_map(|tc| {
                 let id = tc["id"].as_str()?.to_string();
                 let name = tc["function"]["name"].as_str()?.to_string();
                 let arguments_str = tc["function"]["arguments"].as_str()?;
-                let arguments: serde_json::Value =
-                    serde_json::from_str(arguments_str).ok()?;
+                let arguments: serde_json::Value = serde_json::from_str(arguments_str).ok()?;
 
                 Some(ToolCall {
                     id,
@@ -315,11 +301,17 @@ impl ToolCallParser {
                     // Конец блока — парсим
                     if let Ok(value) = serde_json::from_str::<serde_json::Value>(&current_block) {
                         if let Some(name) = value["name"].as_str() {
-                            let id = format!("call_{}", uuid::Uuid::new_v4().to_string().replace("-", "")[..16].to_string());
+                            let id = format!(
+                                "call_{}",
+                                &uuid::Uuid::new_v4().to_string().replace("-", "")[..16]
+                            );
                             calls.push(ToolCall {
                                 id,
                                 name: name.to_string(),
-                                arguments: value.get("arguments").cloned().unwrap_or(serde_json::json!({})),
+                                arguments: value
+                                    .get("arguments")
+                                    .cloned()
+                                    .unwrap_or(serde_json::json!({})),
                             });
                         }
                     }

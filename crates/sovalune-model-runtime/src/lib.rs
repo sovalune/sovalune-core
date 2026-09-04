@@ -27,21 +27,27 @@
 //! - **tokenizer** — подсчёт токенов
 
 pub mod backend;
-pub mod context;
-pub mod engine;
-pub mod types;
-pub mod embedding;
-pub mod tools;
-pub mod retry;
 pub mod cache;
+pub mod context;
+pub mod embedding;
+pub mod engine;
+pub mod retry;
 pub mod tokenizer;
+pub mod tools;
+pub mod types;
 
-pub use backend::{ModelBackend, OpenAIBackend, LocalBackend, BackendConfig};
+pub use backend::{BackendConfig, LocalBackend, ModelBackend, OpenAIBackend};
+pub use cache::{Cache, CacheFactory, EmbeddingCache, ResponseCache, TokenCountCache};
 pub use context::ContextBuilder;
+pub use embedding::{
+    EmbeddingBackend, EmbeddingError, EmbeddingFactory, LocalEmbeddingBackend,
+    OpenAIEmbeddingBackend,
+};
 pub use engine::InferenceEngine;
-pub use types::*;
-pub use embedding::{EmbeddingBackend, OpenAIEmbeddingBackend, LocalEmbeddingBackend, EmbeddingFactory, EmbeddingError};
-pub use tools::{ToolExecutor, ToolRegistry, ToolCallManager, ToolCall, ToolResult, ToolDefinition, ToolError, ToolCallParser};
 pub use retry::{RetryConfig, RetryState};
-pub use cache::{Cache, CacheFactory, ResponseCache, EmbeddingCache, TokenCountCache};
-pub use tokenizer::{TokenCounter, ContextMessage, ContextLimits};
+pub use tokenizer::{ContextLimits, ContextMessage, TokenCounter};
+pub use tools::{
+    ToolCall, ToolCallManager, ToolCallParser, ToolDefinition, ToolError, ToolExecutor,
+    ToolRegistry, ToolResult,
+};
+pub use types::*;

@@ -1,7 +1,7 @@
-use sqlx::PgPool;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Session {
@@ -44,10 +44,10 @@ impl SessionRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-    
+
     pub async fn create_session(&self, project_id: Uuid) -> anyhow::Result<Session> {
         let id = Uuid::new_v4();
-        
+
         let row = sqlx::query_as::<_, Session>(
             r#"
             INSERT INTO sessions (id, project_id)
@@ -59,10 +59,10 @@ impl SessionRepository {
         .bind(project_id)
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
+
     pub async fn get_session(&self, id: Uuid) -> anyhow::Result<Option<Session>> {
         let row = sqlx::query_as::<_, Session>(
             r#"
@@ -74,11 +74,16 @@ impl SessionRepository {
         .bind(id)
         .fetch_optional(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
-    pub async fn list_sessions(&self, project_id: Uuid, limit: i64, offset: i64) -> anyhow::Result<Vec<Session>> {
+
+    pub async fn list_sessions(
+        &self,
+        project_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> anyhow::Result<Vec<Session>> {
         let rows = sqlx::query_as::<_, Session>(
             r#"
             SELECT id, project_id, created_at
@@ -93,13 +98,13 @@ impl SessionRepository {
         .bind(offset)
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows)
     }
-    
+
     pub async fn create_message(&self, message: CreateMessage) -> anyhow::Result<Message> {
         let id = Uuid::new_v4();
-        
+
         let row = sqlx::query_as::<_, Message>(
             r#"
             INSERT INTO messages (id, session_id, role, content, tool_call, request_id)
@@ -115,10 +120,10 @@ impl SessionRepository {
         .bind(message.request_id)
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
+
     pub async fn get_messages(&self, session_id: Uuid, limit: i64) -> anyhow::Result<Vec<Message>> {
         let rows = sqlx::query_as::<_, Message>(
             r#"
@@ -133,11 +138,15 @@ impl SessionRepository {
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows)
     }
-    
-    pub async fn get_recent_messages(&self, session_id: Uuid, limit: i64) -> anyhow::Result<Vec<Message>> {
+
+    pub async fn get_recent_messages(
+        &self,
+        session_id: Uuid,
+        limit: i64,
+    ) -> anyhow::Result<Vec<Message>> {
         let rows = sqlx::query_as::<_, Message>(
             r#"
             SELECT id, session_id, role::text, content, tool_call, request_id, created_at
@@ -155,7 +164,7 @@ impl SessionRepository {
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
-        
+
         Ok(rows)
     }
 }

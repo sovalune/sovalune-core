@@ -3,15 +3,15 @@
 //! Содержит трейт `ModelBackend` — абстракцию над провайдером моделей,
 //! и конкретные реализации: OpenAI-compatible API и локальный HTTP-сервер.
 
-pub mod openai;
 pub mod local;
+pub mod openai;
 
-pub use openai::OpenAIBackend;
 pub use local::LocalBackend;
+pub use openai::OpenAIBackend;
 
+use crate::types::{InferenceError, InferenceRequest, TokenEvent};
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use crate::types::{InferenceRequest, TokenEvent, InferenceError};
 
 /// Конфигурация бэкенда моделей.
 #[derive(Debug, Clone)]

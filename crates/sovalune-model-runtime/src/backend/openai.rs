@@ -18,7 +18,7 @@ use tokio::time::{timeout, Duration};
 use tracing::{debug, warn};
 
 use super::{BackendConfig, ModelBackend};
-use crate::types::{InferenceRequest, TokenEvent, InferenceError};
+use crate::types::{InferenceError, InferenceRequest, TokenEvent};
 
 /// Сообщение в формате OpenAI Chat API.
 #[derive(Debug, Serialize)]
@@ -130,7 +130,10 @@ impl OpenAIBackend {
     }
 
     /// Парсит SSE-событие из строки.
-    fn parse_sse_line(line: &str, request_id: uuid::Uuid) -> Vec<Result<TokenEvent, InferenceError>> {
+    fn parse_sse_line(
+        line: &str,
+        request_id: uuid::Uuid,
+    ) -> Vec<Result<TokenEvent, InferenceError>> {
         let line = line.trim();
 
         if line.is_empty() || line.starts_with(':') {
@@ -231,33 +234,34 @@ impl ModelBackend for OpenAIBackend {
         let request_id = request.id;
         let byte_stream = response.bytes_stream();
 
-        let token_stream = byte_stream.filter_map(move |chunk| {
-            let request_id = request_id;
-            async move {
-                match chunk {
-                    Ok(bytes) => {
-                        let text = String::from_utf8_lossy(&bytes);
-                        let mut events = Vec::new();
+        let token_stream = byte_stream
+            .filter_map(move |chunk| {
+                let request_id = request_id;
+                async move {
+                    match chunk {
+                        Ok(bytes) => {
+                            let text = String::from_utf8_lossy(&bytes);
+                            let mut events = Vec::new();
 
-                        for line in text.lines() {
-                            let parsed = Self::parse_sse_line(line, request_id);
-                            events.extend(parsed);
-                        }
+                            for line in text.lines() {
+                                let parsed = Self::parse_sse_line(line, request_id);
+                                events.extend(parsed);
+                            }
 
-                        if events.is_empty() {
-                            None
-                        } else {
-                            Some(futures::stream::iter(events))
+                            if events.is_empty() {
+                                None
+                            } else {
+                                Some(futures::stream::iter(events))
+                            }
                         }
-                    }
-                    Err(e) => {
-                        warn!("Stream error: {}", e);
-                        Some(futures::stream::iter(vec![Err(InferenceError::Http(e))]))
+                        Err(e) => {
+                            warn!("Stream error: {}", e);
+                            Some(futures::stream::iter(vec![Err(InferenceError::Http(e))]))
+                        }
                     }
                 }
-            }
-        })
-        .flatten();
+            })
+            .flatten();
 
         Ok(Box::pin(token_stream))
     }
@@ -295,10 +299,9 @@ impl ModelBackend for OpenAIBackend {
     }
 
     async fn from_config(config: &BackendConfig) -> Result<Self, InferenceError> {
-        let api_key = config
-            .api_key
-            .as_deref()
-            .ok_or_else(|| InferenceError::Internal("API key required for OpenAI backend".into()))?;
+        let api_key = config.api_key.as_deref().ok_or_else(|| {
+            InferenceError::Internal("API key required for OpenAI backend".into())
+        })?;
 
         Ok(Self::new(
             &config.api_url,

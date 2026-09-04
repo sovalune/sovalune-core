@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Подсчёт токенов для разных моделей.
 pub struct TokenCounter {
@@ -141,11 +141,7 @@ impl TokenCounter {
     }
 
     /// Подсчитывает токены для контекста (список сообщений).
-    pub async fn count_context_tokens(
-        &self,
-        messages: &[ContextMessage],
-        model: &str,
-    ) -> usize {
+    pub async fn count_context_tokens(&self, messages: &[ContextMessage], model: &str) -> usize {
         let mut total = 0;
 
         for msg in messages {
@@ -233,28 +229,60 @@ impl ContextLimits {
     pub fn cost_per_1k_tokens(model: &str, is_input: bool) -> f64 {
         match model {
             "gpt-4o" => {
-                if is_input { 0.005 } else { 0.015 }
+                if is_input {
+                    0.005
+                } else {
+                    0.015
+                }
             }
             "gpt-4o-mini" => {
-                if is_input { 0.00015 } else { 0.0006 }
+                if is_input {
+                    0.00015
+                } else {
+                    0.0006
+                }
             }
             "gpt-4-turbo" => {
-                if is_input { 0.01 } else { 0.03 }
+                if is_input {
+                    0.01
+                } else {
+                    0.03
+                }
             }
             "gpt-4" => {
-                if is_input { 0.03 } else { 0.06 }
+                if is_input {
+                    0.03
+                } else {
+                    0.06
+                }
             }
             "gpt-3.5-turbo" => {
-                if is_input { 0.0005 } else { 0.0015 }
+                if is_input {
+                    0.0005
+                } else {
+                    0.0015
+                }
             }
             "claude-3-opus" => {
-                if is_input { 0.015 } else { 0.075 }
+                if is_input {
+                    0.015
+                } else {
+                    0.075
+                }
             }
             "claude-3-sonnet" => {
-                if is_input { 0.003 } else { 0.015 }
+                if is_input {
+                    0.003
+                } else {
+                    0.015
+                }
             }
             "claude-3-haiku" => {
-                if is_input { 0.00025 } else { 0.00125 }
+                if is_input {
+                    0.00025
+                } else {
+                    0.00125
+                }
             }
             _ => 0.0,
         }

@@ -1,13 +1,12 @@
-use sovalune_storage_client::MemoryEntry;
 use serde::{Deserialize, Serialize};
+use sovalune_storage_client::MemoryEntry;
 use std::sync::Arc;
-use tracing::{debug, warn};
 
-pub mod store;
 pub mod context_weaver;
+pub mod store;
 
-pub use store::VectorMemoryStore;
 pub use context_weaver::ContextWeaver;
+pub use store::VectorMemoryStore;
 
 use sovalune_model_runtime::EmbeddingBackend;
 
@@ -138,6 +137,9 @@ impl VectorMemoryFactory {
         .await?;
 
         let store = VectorMemoryStore::new(pool);
-        Ok(EmbeddingVectorMemoryStore::new(store, Arc::from(embedding_backend)))
+        Ok(EmbeddingVectorMemoryStore::new(
+            store,
+            Arc::from(embedding_backend),
+        ))
     }
 }

@@ -155,7 +155,7 @@ impl ContextBuilder {
 
     /// Грубая оценка количества токенов (4 символа ≈ 1 токен).
     fn estimate_tokens(&self, text: &str) -> usize {
-        (text.len() + 3) / 4
+        text.len().div_ceil(4)
     }
 
     /// Обрезает текст до указанного количества токенов.

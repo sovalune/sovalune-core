@@ -19,12 +19,12 @@ use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
 use sovalune_model_runtime::{ContextBuilder, GenerationConfig, InferenceRequest};
-use sovalune_storage_client::{SessionRepository, CreateMessage, MemoryFilter};
+use sovalune_storage_client::{CreateMessage, MemoryFilter, SessionRepository};
 
 /// Сообщение от клиента.
 #[derive(Debug, Deserialize)]
@@ -138,7 +138,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         let session_uuid = match Uuid::parse_str(&session_id) {
                             Ok(id) => id,
                             Err(e) => {
-                                send_error(&sender, "INVALID_SESSION", &format!("Invalid session ID: {}", e)).await;
+                                send_error(
+                                    &sender,
+                                    "INVALID_SESSION",
+                                    &format!("Invalid session ID: {}", e),
+                                )
+                                .await;
                                 continue;
                             }
                         };
@@ -146,7 +151,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         let project_uuid = match Uuid::parse_str(&project_id) {
                             Ok(id) => id,
                             Err(e) => {
-                                send_error(&sender, "INVALID_PROJECT", &format!("Invalid project ID: {}", e)).await;
+                                send_error(
+                                    &sender,
+                                    "INVALID_PROJECT",
+                                    &format!("Invalid project ID: {}", e),
+                                )
+                                .await;
                                 continue;
                             }
                         };
@@ -166,7 +176,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             .await
                         {
                             error!("Failed to save user message: {}", e);
-                            send_error(&sender, "DB_ERROR", &format!("Failed to save message: {}", e)).await;
+                            send_error(
+                                &sender,
+                                "DB_ERROR",
+                                &format!("Failed to save message: {}", e),
+                            )
+                            .await;
                             continue;
                         }
 
@@ -179,7 +194,8 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             query: Some(content.clone()),
                         };
 
-                        let memory_entries = match state.vector_memory
+                        let memory_entries = match state
+                            .vector_memory
                             .search_by_text_with_embedding(&content, memory_filter, 10)
                             .await
                         {
@@ -190,7 +206,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             Err(e) => {
                                 warn!("Failed to search memory with embedding: {}", e);
                                 // Fallback to text search
-                                let memory_repo = sovalune_storage_client::MemoryRepository::new(state.storage.pool().clone());
+                                let memory_repo = sovalune_storage_client::MemoryRepository::new(
+                                    state.storage.pool().clone(),
+                                );
                                 let fallback_filter = MemoryFilter {
                                     project_id: Some(project_uuid),
                                     tier: None,
@@ -198,18 +216,16 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                     archived: Some(false),
                                     query: Some(content.clone()),
                                 };
-                                match memory_repo.list(fallback_filter, 10, 0).await {
-                                    Ok(entries) => entries,
-                                    Err(e) => {
-                                        warn!("Failed to fetch memory context: {}", e);
-                                        Vec::new()
-                                    }
-                                }
+                                memory_repo
+                                    .list(fallback_filter, 10, 0)
+                                    .await
+                                    .unwrap_or_default()
                             }
                         };
 
                         // Загружаем историю сообщений
-                        let history = match session_repo.get_recent_messages(session_uuid, 20).await {
+                        let history = match session_repo.get_recent_messages(session_uuid, 20).await
+                        {
                             Ok(msgs) => msgs,
                             Err(e) => {
                                 warn!("Failed to fetch message history: {}", e);
@@ -222,11 +238,11 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             "You are Sovalune, an AI assistant with long-term memory. \
                              You help users with software engineering tasks. \
                              Be helpful, accurate, and concise. \
-                             Project ID: {}", project_id
+                             Project ID: {}",
+                            project_id
                         );
 
-                        let mut builder = ContextBuilder::new(128_000)
-                            .with_system(&system_prompt);
+                        let mut builder = ContextBuilder::new(128_000).with_system(&system_prompt);
 
                         // Добавляем секции памяти
                         for entry in &memory_entries {
@@ -280,7 +296,10 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
                                                     if let Err(e) = session_repo
                                                         .create_message(CreateMessage {
-                                                            session_id: Uuid::parse_str(&session_clone).unwrap(),
+                                                            session_id: Uuid::parse_str(
+                                                                &session_clone,
+                                                            )
+                                                            .unwrap(),
                                                             role: "assistant".to_string(),
                                                             content: full_response.clone(),
                                                             tool_call: None,
@@ -288,7 +307,10 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                                         })
                                                         .await
                                                     {
-                                                        error!("Failed to save assistant message: {}", e);
+                                                        error!(
+                                                            "Failed to save assistant message: {}",
+                                                            e
+                                                        );
                                                     }
 
                                                     // Отправляем завершение
@@ -299,7 +321,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                                     let mut s = sender_clone.lock().await;
                                                     let _ = s
                                                         .send(Message::Text(
-                                                            serde_json::to_string(&complete).unwrap().into(),
+                                                            serde_json::to_string(&complete)
+                                                                .unwrap()
+                                                                .into(),
                                                         ))
                                                         .await;
                                                     break;
@@ -314,13 +338,20 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                                 let mut s = sender_clone.lock().await;
                                                 let _ = s
                                                     .send(Message::Text(
-                                                        serde_json::to_string(&token_msg).unwrap().into(),
+                                                        serde_json::to_string(&token_msg)
+                                                            .unwrap()
+                                                            .into(),
                                                     ))
                                                     .await;
                                             }
                                             Err(e) => {
                                                 error!("Inference error: {}", e);
-                                                send_error(&sender_clone, "INFERENCE_ERROR", &e.to_string()).await;
+                                                send_error(
+                                                    &sender_clone,
+                                                    "INFERENCE_ERROR",
+                                                    &e.to_string(),
+                                                )
+                                                .await;
                                                 break;
                                             }
                                         }
@@ -328,7 +359,8 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                 }
                                 Err(e) => {
                                     error!("Failed to start inference: {}", e);
-                                    send_error(&sender_clone, "INFERENCE_FAILED", &e.to_string()).await;
+                                    send_error(&sender_clone, "INFERENCE_FAILED", &e.to_string())
+                                        .await;
                                 }
                             }
                         });
@@ -347,7 +379,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
                     Err(e) => {
                         error!("Failed to parse client message: {}", e);
-                        send_error(&sender, "PARSE_ERROR", &format!("Invalid message format: {}", e)).await;
+                        send_error(
+                            &sender,
+                            "PARSE_ERROR",
+                            &format!("Invalid message format: {}", e),
+                        )
+                        .await;
                     }
                 }
             }
@@ -361,7 +398,11 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 }
 
 /// Отправляет сообщение об ошибке клиенту.
-async fn send_error(sender: &Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>, code: &str, message: &str) {
+async fn send_error(
+    sender: &Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>,
+    code: &str,
+    message: &str,
+) {
     let err = ServerMessage::Error {
         code: code.to_string(),
         message: message.to_string(),

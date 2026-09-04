@@ -5,9 +5,7 @@
 
 use axum::{
     extract::{Path, State},
-    response::{
-        sse::{Event, KeepAlive, Sse},
-    },
+    response::sse::{Event, KeepAlive, Sse},
     Json,
 };
 use futures::{Stream, StreamExt};
@@ -17,7 +15,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use sovalune_model_runtime::{ContextBuilder, GenerationConfig, InferenceRequest};
-use sovalune_storage_client::{SessionRepository, MemoryFilter, CreateMessage};
+use sovalune_storage_client::{CreateMessage, MemoryFilter, SessionRepository};
 
 /// Статус инференса.
 #[derive(Serialize)]
@@ -51,8 +49,12 @@ pub struct InferRequest {
     pub temperature: f32,
 }
 
-fn default_max_tokens() -> u32 { 2048 }
-fn default_temperature() -> f32 { 0.7 }
+fn default_max_tokens() -> u32 {
+    2048
+}
+fn default_temperature() -> f32 {
+    0.7
+}
 
 /// `POST /api/v1/sessions/:id/infer`
 ///
@@ -90,16 +92,16 @@ pub async fn infer(
         query: Some(req.message.clone()),
     };
 
-    let memories = match state.vector_memory
+    let memories = match state
+        .vector_memory
         .search_by_text_with_embedding(&req.message, memory_filter, 10)
         .await
     {
-        Ok(scored) => {
-            scored.into_iter().map(|sm| sm.entry).collect()
-        }
-        Err(e) => {
+        Ok(scored) => scored.into_iter().map(|sm| sm.entry).collect(),
+        Err(_e) => {
             // Fallback to text search
-            let memory_repo = sovalune_storage_client::MemoryRepository::new(state.storage.pool().clone());
+            let memory_repo =
+                sovalune_storage_client::MemoryRepository::new(state.storage.pool().clone());
             let fallback_filter = MemoryFilter {
                 project_id: None,
                 tier: None,
@@ -107,10 +109,10 @@ pub async fn infer(
                 archived: Some(false),
                 query: Some(req.message.clone()),
             };
-            match memory_repo.list(fallback_filter, 10, 0).await {
-                Ok(entries) => entries,
-                Err(_) => Vec::new(),
-            }
+            memory_repo
+                .list(fallback_filter, 10, 0)
+                .await
+                .unwrap_or_default()
         }
     };
 

@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Ошибка генерации эмбеддинга.
 #[derive(Debug, thiserror::Error)]
@@ -153,7 +153,10 @@ impl EmbeddingBackend for OpenAIEmbeddingBackend {
 
         results.sort_by_key(|(index, _)| *index);
 
-        Ok(results.into_iter().map(|(_, embedding)| embedding).collect())
+        Ok(results
+            .into_iter()
+            .map(|(_, embedding)| embedding)
+            .collect())
     }
 
     fn dimensions(&self) -> usize {
@@ -209,7 +212,10 @@ impl LocalEmbeddingBackend {
                         // Ищем модель для эмбеддингов
                         for model in models {
                             if let Some(name) = model["name"].as_str() {
-                                if name.contains("embed") || name.contains("bge") || name.contains("nomic") {
+                                if name.contains("embed")
+                                    || name.contains("bge")
+                                    || name.contains("nomic")
+                                {
                                     info!("Detected embedding model: {}", name);
                                     return Ok(name.to_string());
                                 }
@@ -315,10 +321,7 @@ impl EmbeddingFactory {
                     EmbeddingError::Internal("API key required for OpenAI embedding".into())
                 })?;
                 Ok(Box::new(OpenAIEmbeddingBackend::new(
-                    api_url,
-                    key,
-                    model,
-                    dimensions,
+                    api_url, key, model, dimensions,
                 )))
             }
             "local" => {

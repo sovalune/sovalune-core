@@ -12,7 +12,6 @@
 //! - Max retries: 3
 
 use std::time::Duration;
-use tracing::{debug, warn};
 
 /// Конфигурация повторных попыток.
 #[derive(Debug, Clone)]
@@ -119,7 +118,11 @@ pub fn should_retry(error: &str) -> bool {
     }
 
     // Server errors — повторяем
-    if lower.contains("500") || lower.contains("502") || lower.contains("503") || lower.contains("504") {
+    if lower.contains("500")
+        || lower.contains("502")
+        || lower.contains("503")
+        || lower.contains("504")
+    {
         return true;
     }
 
@@ -218,7 +221,7 @@ impl RetryState {
 #[macro_export]
 macro_rules! retry_with_backoff {
     ($operation:expr, $config:expr) => {{
-        use $crate::retry::{RetryState, should_retry, extract_retry_after};
+        use $crate::retry::{extract_retry_after, should_retry, RetryState};
 
         let mut state = RetryState::new($config);
         let mut last_error = None;

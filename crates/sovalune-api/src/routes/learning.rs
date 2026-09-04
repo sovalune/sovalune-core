@@ -1,9 +1,9 @@
-use axum::extract::{Path, State, Query};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use uuid::Uuid;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::AppState;
 
@@ -21,27 +21,33 @@ pub async fn list(
 ) -> Result<Json<Value>, (axum::http::StatusCode, Json<Value>)> {
     let limit = params.limit.unwrap_or(20).min(100);
     let offset = params.offset.unwrap_or(0);
-    
-    match state.learning.list_cycles(
-        params.project_id,
-        params.status.and_then(|s| s.parse().ok()),
-        limit,
-        offset,
-    ).await {
+
+    match state
+        .learning
+        .list_cycles(
+            params.project_id,
+            params.status.and_then(|s| s.parse().ok()),
+            limit,
+            offset,
+        )
+        .await
+    {
         Ok(cycles) => {
             let response: Vec<Value> = cycles
                 .into_iter()
-                .map(|c| json!({
-                    "id": c.id,
-                    "project_id": c.project_id,
-                    "status": c.status.to_string(),
-                    "origin_task_id": c.origin_task_id,
-                    "failure_reason": c.failure_reason,
-                    "retry_count": c.retry_count,
-                    "confidence_score": c.confidence_score,
-                    "created_at": c.created_at.to_rfc3339(),
-                    "updated_at": c.updated_at.to_rfc3339(),
-                }))
+                .map(|c| {
+                    json!({
+                        "id": c.id,
+                        "project_id": c.project_id,
+                        "status": c.status.to_string(),
+                        "origin_task_id": c.origin_task_id,
+                        "failure_reason": c.failure_reason,
+                        "retry_count": c.retry_count,
+                        "confidence_score": c.confidence_score,
+                        "created_at": c.created_at.to_rfc3339(),
+                        "updated_at": c.updated_at.to_rfc3339(),
+                    })
+                })
                 .collect();
             Ok(Json(json!({ "data": response })))
         }
@@ -89,15 +95,17 @@ pub async fn evidence(
         Ok(evidence) => {
             let response: Vec<Value> = evidence
                 .into_iter()
-                .map(|e| json!({
-                    "id": e.id,
-                    "cycle_id": e.cycle_id,
-                    "source_type": e.source_type,
-                    "source_url": e.source_url,
-                    "excerpt": e.excerpt,
-                    "trust_tier": e.trust_tier,
-                    "created_at": e.created_at.to_rfc3339(),
-                }))
+                .map(|e| {
+                    json!({
+                        "id": e.id,
+                        "cycle_id": e.cycle_id,
+                        "source_type": e.source_type,
+                        "source_url": e.source_url,
+                        "excerpt": e.excerpt,
+                        "trust_tier": e.trust_tier,
+                        "created_at": e.created_at.to_rfc3339(),
+                    })
+                })
                 .collect();
             Ok(Json(json!({ "data": response })))
         }
@@ -119,14 +127,16 @@ pub async fn test_results(
         Ok(results) => {
             let response: Vec<Value> = results
                 .into_iter()
-                .map(|r| json!({
-                    "id": r.id,
-                    "cycle_id": r.cycle_id,
-                    "stage": r.stage,
-                    "passed": r.passed,
-                    "detail": r.detail,
-                    "created_at": r.created_at.to_rfc3339(),
-                }))
+                .map(|r| {
+                    json!({
+                        "id": r.id,
+                        "cycle_id": r.cycle_id,
+                        "stage": r.stage,
+                        "passed": r.passed,
+                        "detail": r.detail,
+                        "created_at": r.created_at.to_rfc3339(),
+                    })
+                })
                 .collect();
             Ok(Json(json!({ "data": response })))
         }

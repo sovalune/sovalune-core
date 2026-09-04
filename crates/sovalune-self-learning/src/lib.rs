@@ -36,7 +36,7 @@ impl std::fmt::Display for LearningCycleStatus {
 
 impl std::str::FromStr for LearningCycleStatus {
     type Err = anyhow::Error;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "detected" => Ok(LearningCycleStatus::Detected),
@@ -64,9 +64,12 @@ impl LearningCycleStatus {
             _ => None,
         }
     }
-    
+
     pub fn is_terminal(&self) -> bool {
-        matches!(self, LearningCycleStatus::Completed | LearningCycleStatus::Failed)
+        matches!(
+            self,
+            LearningCycleStatus::Completed | LearningCycleStatus::Failed
+        )
     }
 }
 

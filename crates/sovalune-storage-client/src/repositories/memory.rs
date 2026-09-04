@@ -1,7 +1,7 @@
-use sqlx::PgPool;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MemoryTier {
@@ -22,7 +22,7 @@ impl std::fmt::Display for MemoryTier {
 
 impl std::str::FromStr for MemoryTier {
     type Err = anyhow::Error;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "raw" => Ok(MemoryTier::Raw),
@@ -103,11 +103,14 @@ impl MemoryRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-    
+
     pub async fn create(&self, entry: CreateMemoryEntry) -> anyhow::Result<MemoryEntry> {
         let id = Uuid::new_v4();
-        let embedding_json = entry.embedding.map(|e| serde_json::to_string(&e)).transpose()?;
-        
+        let embedding_json = entry
+            .embedding
+            .map(|e| serde_json::to_string(&e))
+            .transpose()?;
+
         let row = sqlx::query_as::<_, MemoryEntry>(
             r#"
             INSERT INTO memory_entries (id, project_id, tier, content, embedding, metadata, confidence_score, source_entry_ids)
@@ -125,10 +128,10 @@ impl MemoryRepository {
         .bind(&entry.source_entry_ids)
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
+
     pub async fn get(&self, id: Uuid) -> anyhow::Result<Option<MemoryEntry>> {
         let row = sqlx::query_as::<_, MemoryEntry>(
             r#"
@@ -140,11 +143,15 @@ impl MemoryRepository {
         .bind(id)
         .fetch_optional(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
-    pub async fn update(&self, id: Uuid, update: UpdateMemoryEntry) -> anyhow::Result<Option<MemoryEntry>> {
+
+    pub async fn update(
+        &self,
+        id: Uuid,
+        update: UpdateMemoryEntry,
+    ) -> anyhow::Result<Option<MemoryEntry>> {
         if let Some(content) = update.content {
             sqlx::query("UPDATE memory_entries SET content = $1, updated_at = NOW() WHERE id = $2")
                 .bind(content)
@@ -153,40 +160,51 @@ impl MemoryRepository {
                 .await?;
         }
         if let Some(metadata) = update.metadata {
-            sqlx::query("UPDATE memory_entries SET metadata = $1, updated_at = NOW() WHERE id = $2")
-                .bind(metadata)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                "UPDATE memory_entries SET metadata = $1, updated_at = NOW() WHERE id = $2",
+            )
+            .bind(metadata)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(confidence_score) = update.confidence_score {
-            sqlx::query("UPDATE memory_entries SET confidence_score = $1, updated_at = NOW() WHERE id = $2")
-                .bind(confidence_score)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                "UPDATE memory_entries SET confidence_score = $1, updated_at = NOW() WHERE id = $2",
+            )
+            .bind(confidence_score)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(archived) = update.archived {
-            sqlx::query("UPDATE memory_entries SET archived = $1, updated_at = NOW() WHERE id = $2")
-                .bind(archived)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                "UPDATE memory_entries SET archived = $1, updated_at = NOW() WHERE id = $2",
+            )
+            .bind(archived)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
-        
+
         self.get(id).await
     }
-    
+
     pub async fn delete(&self, id: Uuid) -> anyhow::Result<()> {
         sqlx::query("DELETE FROM memory_entries WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
             .await?;
-        
+
         Ok(())
     }
-    
-    pub async fn list(&self, filter: MemoryFilter, limit: i64, offset: i64) -> anyhow::Result<Vec<MemoryEntry>> {
+
+    pub async fn list(
+        &self,
+        filter: MemoryFilter,
+        limit: i64,
+        offset: i64,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
         let mut query = String::from(
             r#"
             SELECT id, project_id, tier::text, content, embedding::text, metadata, confidence_score, decay_score, archived, source_entry_ids, created_at, updated_at
@@ -194,7 +212,7 @@ impl MemoryRepository {
             WHERE 1=1
             "#,
         );
-        
+
         if let Some(project_id) = filter.project_id {
             query.push_str(&format!(" AND project_id = '{}'", project_id));
         }
@@ -210,17 +228,17 @@ impl MemoryRepository {
         if let Some(q) = filter.query {
             query.push_str(&format!(" AND content ILIKE '%{}%'", q.replace('\'', "''")));
         }
-        
+
         query.push_str(" ORDER BY created_at DESC");
         query.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
-        
+
         let rows = sqlx::query_as::<_, MemoryEntry>(&query)
             .fetch_all(&self.pool)
             .await?;
-        
+
         Ok(rows)
     }
-    
+
     pub async fn search_by_embedding(
         &self,
         query_embedding: &[f32],
@@ -228,7 +246,7 @@ impl MemoryRepository {
         top_k: usize,
     ) -> anyhow::Result<Vec<(MemoryEntry, f32)>> {
         let embedding_json = serde_json::to_string(query_embedding)?;
-        
+
         let mut query = String::from(
             r#"
             SELECT id, project_id, tier::text, content, embedding::text, metadata, confidence_score, decay_score, archived, source_entry_ids, created_at, updated_at,
@@ -237,7 +255,7 @@ impl MemoryRepository {
             WHERE archived = false
             "#,
         );
-        
+
         if let Some(project_id) = filter.project_id {
             query.push_str(&format!(" AND project_id = '{}'", project_id));
         }
@@ -247,15 +265,15 @@ impl MemoryRepository {
         if let Some(min_confidence) = filter.min_confidence {
             query.push_str(&format!(" AND confidence_score >= {}", min_confidence));
         }
-        
+
         query.push_str(" ORDER BY score DESC");
         query.push_str(&format!(" LIMIT {}", top_k));
-        
+
         let rows = sqlx::query_as::<_, SearchMemoryRow>(&query)
             .bind(&embedding_json)
             .fetch_all(&self.pool)
             .await?;
-        
+
         let results: Vec<(MemoryEntry, f32)> = rows
             .into_iter()
             .map(|row| {
@@ -276,14 +294,20 @@ impl MemoryRepository {
                 (entry, row.score)
             })
             .collect();
-        
+
         Ok(results)
     }
-    
-    pub async fn consolidate(&self, source_ids: &[Uuid], consolidated_content: &str, embedding: &[f32], metadata: serde_json::Value) -> anyhow::Result<MemoryEntry> {
+
+    pub async fn consolidate(
+        &self,
+        source_ids: &[Uuid],
+        consolidated_content: &str,
+        embedding: &[f32],
+        metadata: serde_json::Value,
+    ) -> anyhow::Result<MemoryEntry> {
         let id = Uuid::new_v4();
         let embedding_json = serde_json::to_string(embedding)?;
-        
+
         let row = sqlx::query_as::<_, MemoryEntry>(
             r#"
             INSERT INTO memory_entries (id, project_id, tier, content, embedding, metadata, confidence_score, source_entry_ids)
@@ -301,10 +325,10 @@ impl MemoryRepository {
         .bind(source_ids.first().unwrap_or(&Uuid::nil()))
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
-    
+
     pub async fn promote_to_verified(&self, id: Uuid, _evidence_id: Uuid) -> anyhow::Result<()> {
         sqlx::query(
             r#"
@@ -316,10 +340,10 @@ impl MemoryRepository {
         .bind(id)
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn decay_tick(&self) -> anyhow::Result<usize> {
         let result = sqlx::query(
             r#"
@@ -332,10 +356,10 @@ impl MemoryRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(result.rows_affected() as usize)
     }
-    
+
     pub async fn archive_low_decay(&self, threshold: f32) -> anyhow::Result<usize> {
         let result = sqlx::query(
             r#"
@@ -349,7 +373,7 @@ impl MemoryRepository {
         .bind(threshold)
         .execute(&self.pool)
         .await?;
-        
+
         Ok(result.rows_affected() as usize)
     }
 }

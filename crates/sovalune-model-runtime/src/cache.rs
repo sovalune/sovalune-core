@@ -10,9 +10,8 @@
 //! - Кеш токенов: без TTL, max 50000 записей
 
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 use tracing::debug;
 
 /// Запись в кеше с TTL.
@@ -202,7 +201,10 @@ mod tests {
         let cache = Cache::new(10, Duration::from_secs(60));
 
         cache.insert("key1".to_string(), "value1".to_string()).await;
-        assert_eq!(cache.get(&"key1".to_string()).await, Some("value1".to_string()));
+        assert_eq!(
+            cache.get(&"key1".to_string()).await,
+            Some("value1".to_string())
+        );
         assert_eq!(cache.get(&"key2".to_string()).await, None);
     }
 
@@ -225,8 +227,14 @@ mod tests {
 
         // key1 должен быть вытеснен
         assert_eq!(cache.get(&"key1".to_string()).await, None);
-        assert_eq!(cache.get(&"key2".to_string()).await, Some("value2".to_string()));
-        assert_eq!(cache.get(&"key3".to_string()).await, Some("value3".to_string()));
+        assert_eq!(
+            cache.get(&"key2".to_string()).await,
+            Some("value2".to_string())
+        );
+        assert_eq!(
+            cache.get(&"key3".to_string()).await,
+            Some("value3".to_string())
+        );
     }
 
     #[test]

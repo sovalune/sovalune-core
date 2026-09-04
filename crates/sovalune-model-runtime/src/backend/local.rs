@@ -16,7 +16,7 @@ use tokio::time::Duration;
 use tracing::{debug, info};
 
 use super::{BackendConfig, ModelBackend};
-use crate::types::{InferenceRequest, TokenEvent, InferenceError};
+use crate::types::{InferenceError, InferenceRequest, TokenEvent};
 
 use super::openai::OpenAIBackend;
 

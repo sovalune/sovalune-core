@@ -4,10 +4,18 @@ use tracing::info;
 
 pub mod repositories;
 
-pub use repositories::memory::{MemoryRepository, MemoryEntry, MemoryFilter, CreateMemoryEntry, UpdateMemoryEntry, MemoryTier, SearchMemoryRow};
-pub use repositories::session::{SessionRepository, Session, Message, CreateSession, CreateMessage};
-pub use repositories::learning_cycle::{LearningCycleRepository, LearningCycle as StorageLearningCycle, LearningCycleEvidence, LearningCycleTestResult, CreateLearningCycle, CreateEvidence, CreateTestResult};
-pub use repositories::project::{ProjectRepository, Project, CreateProject, UpdateProject};
+pub use repositories::learning_cycle::{
+    CreateEvidence, CreateLearningCycle, CreateTestResult, LearningCycle as StorageLearningCycle,
+    LearningCycleEvidence, LearningCycleRepository, LearningCycleTestResult,
+};
+pub use repositories::memory::{
+    CreateMemoryEntry, MemoryEntry, MemoryFilter, MemoryRepository, MemoryTier, SearchMemoryRow,
+    UpdateMemoryEntry,
+};
+pub use repositories::project::{CreateProject, Project, ProjectRepository, UpdateProject};
+pub use repositories::session::{
+    CreateMessage, CreateSession, Message, Session, SessionRepository,
+};
 
 #[derive(Clone)]
 pub struct StorageClient {
@@ -21,28 +29,25 @@ impl StorageClient {
             .acquire_timeout(Duration::from_secs(5))
             .connect(database_url)
             .await?;
-        
+
         info!("Connected to PostgreSQL");
-        
+
         Ok(Self { pool })
     }
-    
+
     pub fn pool(&self) -> &PgPool {
         &self.pool
     }
-    
+
     pub async fn run_migrations(&self) -> anyhow::Result<()> {
         let migrator = sovalune_storage_schema::get_migrator();
         migrator.run(&self.pool).await?;
-        
+
         info!("Migrations completed");
         Ok(())
     }
-    
+
     pub async fn health_check(&self) -> bool {
-        sqlx::query("SELECT 1")
-            .execute(&self.pool)
-            .await
-            .is_ok()
+        sqlx::query("SELECT 1").execute(&self.pool).await.is_ok()
     }
 }

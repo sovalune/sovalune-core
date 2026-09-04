@@ -15,18 +15,15 @@
 //! InferenceResult
 //! ```
 
-use std::sync::Arc;
 use futures::stream::BoxStream;
 use futures::StreamExt;
+use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn, error};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::backend::{BackendConfig, ModelBackend};
-use crate::context::ContextBuilder;
-use crate::types::{
-    GenerationConfig, InferenceError, InferenceRequest, InferenceResult, TokenEvent,
-};
+use crate::types::{InferenceError, InferenceRequest, InferenceResult, TokenEvent};
 
 /// Движок инференса — центральный компонент для генерации ответов.
 ///
@@ -49,17 +46,12 @@ use crate::types::{
 pub struct InferenceEngine {
     /// Бэкенд моделей.
     backend: Arc<dyn ModelBackend>,
-    /// Конфигурация по умолчанию.
-    default_config: GenerationConfig,
 }
 
 impl InferenceEngine {
     /// Создаёт новый движок с указанным бэкендом.
     pub fn new(backend: Arc<dyn ModelBackend>) -> Self {
-        Self {
-            backend,
-            default_config: GenerationConfig::default(),
-        }
+        Self { backend }
     }
 
     /// Создаёт движок из конфигурации.
@@ -83,7 +75,7 @@ impl InferenceEngine {
     /// Возвращает стрим `TokenEvent` — каждый элемент содержит один токен.
     pub async fn stream_infer(
         &self,
-        mut request: InferenceRequest,
+        request: InferenceRequest,
     ) -> Result<BoxStream<'_, Result<TokenEvent, InferenceError>>, InferenceError> {
         // Проверяем здоровье бэкенда
         if !self.backend.health_check().await {
@@ -116,7 +108,6 @@ impl InferenceEngine {
 
         // Оборачиваем стрим для логирования и метрик
         let request_id = request.id;
-        let model_name = self.backend.model_name().to_string();
 
         let wrapped_stream = async_stream::stream! {
             let mut tokens_generated = 0u32;
@@ -232,25 +223,15 @@ impl InferenceEngineFactory {
     }
 
     /// Регистрирует конфигурацию бэкенда для проекта.
-    pub async fn register_project(
-        &self,
-        project_id: &str,
-        config: BackendConfig,
-    ) {
+    pub async fn register_project(&self, project_id: &str, config: BackendConfig) {
         let mut configs = self.configs.write().await;
         configs.insert(project_id.to_string(), config);
     }
 
     /// Создаёт движок для проекта.
-    pub async fn create_engine(
-        &self,
-        project_id: &str,
-    ) -> Result<InferenceEngine, InferenceError> {
+    pub async fn create_engine(&self, project_id: &str) -> Result<InferenceEngine, InferenceError> {
         let configs = self.configs.read().await;
-        let config = configs
-            .get(project_id)
-            .cloned()
-            .unwrap_or_default();
+        let config = configs.get(project_id).cloned().unwrap_or_default();
 
         InferenceEngine::from_config(&config).await
     }

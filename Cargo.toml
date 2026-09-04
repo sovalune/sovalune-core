@@ -4,10 +4,12 @@ members = [
     "crates/sovalune-api",
     "crates/sovalune-domain",
     "crates/sovalune-storage-client",
+    "crates/sovalune-storage-schema",
     "crates/sovalune-bus",
     "crates/sovalune-config",
     "crates/sovalune-vector-memory",
     "crates/sovalune-self-learning",
+    "crates/sovalune-instruction-sdk",
     "crates/sovalune-model-runtime",
     "bin/sovalune-server",
 ]

@@ -10,7 +10,7 @@ pub async fn ready(
 ) -> Result<Json<Value>, (axum::http::StatusCode, Json<Value>)> {
     let storage_ok = state.storage.health_check().await;
     let nats_ok = state.nats.health_check().await;
-    
+
     if storage_ok && nats_ok {
         Ok(Json(json!({ "status": "ok" })))
     } else {
