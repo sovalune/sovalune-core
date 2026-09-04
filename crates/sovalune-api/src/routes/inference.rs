@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use sovalune_model_runtime::{ContextBuilder, GenerationConfig, InferenceRequest};
-use sovalune_storage_client::{SessionRepository, MemoryRepository, MemoryFilter, CreateMessage};
+use sovalune_storage_client::{SessionRepository, MemoryFilter, CreateMessage};
 
 /// Статус инференса.
 #[derive(Serialize)]
@@ -81,8 +81,7 @@ pub async fn infer(
         })
         .await;
 
-    // Загружаем контекст памяти
-    let memory_repo = MemoryRepository::new(state.storage.pool().clone());
+    // Ищем релевантную память через эмбеддинги
     let memory_filter = MemoryFilter {
         project_id: None,
         tier: None,
@@ -91,10 +90,29 @@ pub async fn infer(
         query: Some(req.message.clone()),
     };
 
-    let memories = memory_repo
-        .list(memory_filter, 10, 0)
+    let memories = match state.vector_memory
+        .search_by_text_with_embedding(&req.message, memory_filter, 10)
         .await
-        .unwrap_or_default();
+    {
+        Ok(scored) => {
+            scored.into_iter().map(|sm| sm.entry).collect()
+        }
+        Err(e) => {
+            // Fallback to text search
+            let memory_repo = sovalune_storage_client::MemoryRepository::new(state.storage.pool().clone());
+            let fallback_filter = MemoryFilter {
+                project_id: None,
+                tier: None,
+                min_confidence: Some(0.5),
+                archived: Some(false),
+                query: Some(req.message.clone()),
+            };
+            match memory_repo.list(fallback_filter, 10, 0).await {
+                Ok(entries) => entries,
+                Err(_) => Vec::new(),
+            }
+        }
+    };
 
     // Загружаем историю сессии
     let history = session_repo

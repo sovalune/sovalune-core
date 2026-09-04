@@ -3,7 +3,7 @@ pub mod routes;
 use axum::{routing::{get, post}, Router};
 use sovalune_bus::NatsClient;
 use sovalune_storage_client::StorageClient;
-use sovalune_vector_memory::VectorMemoryStore;
+use sovalune_vector_memory::EmbeddingVectorMemoryStore;
 use sovalune_self_learning::LearningCycleOrchestrator;
 use sovalune_model_runtime::InferenceEngine;
 use std::sync::Arc;
@@ -14,7 +14,7 @@ use tower_http::trace::TraceLayer;
 pub struct AppState {
     pub storage: StorageClient,
     pub nats: NatsClient,
-    pub vector_memory: VectorMemoryStore,
+    pub vector_memory: EmbeddingVectorMemoryStore,
     pub learning: LearningCycleOrchestrator,
     pub inference: Arc<InferenceEngine>,
 }

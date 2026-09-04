@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use sovalune_model_runtime::{ContextBuilder, GenerationConfig, InferenceRequest};
-use sovalune_storage_client::{SessionRepository, MemoryRepository, CreateMessage, MemoryFilter};
+use sovalune_storage_client::{SessionRepository, CreateMessage, MemoryFilter};
 
 /// Сообщение от клиента.
 #[derive(Debug, Deserialize)]
@@ -170,8 +170,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             continue;
                         }
 
-                        // Собираем контекст из памяти
-                        let memory_repo = MemoryRepository::new(state.storage.pool().clone());
+                        // Ищем релевантную память через эмбеддинги
                         let memory_filter = MemoryFilter {
                             project_id: Some(project_uuid),
                             tier: None,
@@ -180,11 +179,32 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             query: Some(content.clone()),
                         };
 
-                        let memory_entries = match memory_repo.list(memory_filter, 10, 0).await {
-                            Ok(entries) => entries,
+                        let memory_entries = match state.vector_memory
+                            .search_by_text_with_embedding(&content, memory_filter, 10)
+                            .await
+                        {
+                            Ok(scored) => {
+                                info!("Found {} relevant memory entries", scored.len());
+                                scored.into_iter().map(|sm| sm.entry).collect()
+                            }
                             Err(e) => {
-                                warn!("Failed to fetch memory context: {}", e);
-                                Vec::new()
+                                warn!("Failed to search memory with embedding: {}", e);
+                                // Fallback to text search
+                                let memory_repo = sovalune_storage_client::MemoryRepository::new(state.storage.pool().clone());
+                                let fallback_filter = MemoryFilter {
+                                    project_id: Some(project_uuid),
+                                    tier: None,
+                                    min_confidence: Some(0.5),
+                                    archived: Some(false),
+                                    query: Some(content.clone()),
+                                };
+                                match memory_repo.list(fallback_filter, 10, 0).await {
+                                    Ok(entries) => entries,
+                                    Err(e) => {
+                                        warn!("Failed to fetch memory context: {}", e);
+                                        Vec::new()
+                                    }
+                                }
                             }
                         };
 

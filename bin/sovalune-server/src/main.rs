@@ -2,9 +2,12 @@ use sovalune_api::{create_router, AppState};
 use sovalune_bus::NatsClient;
 use sovalune_config::AppConfig;
 use sovalune_storage_client::StorageClient;
-use sovalune_vector_memory::VectorMemoryStore;
+use sovalune_vector_memory::{VectorMemoryStore, EmbeddingVectorMemoryStore, VectorMemoryFactory};
 use sovalune_self_learning::LearningCycleOrchestrator;
-use sovalune_model_runtime::{InferenceEngine, BackendConfig};
+use sovalune_model_runtime::{
+    InferenceEngine, BackendConfig, EmbeddingFactory, EmbeddingBackend,
+    ToolRegistry, TokenCounter, CacheFactory,
+};
 use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::sync::Arc;
@@ -33,11 +36,57 @@ async fn main() -> anyhow::Result<()> {
     let nats = NatsClient::new(&config.nats_url).await?;
     info!("Connected to NATS");
 
-    let vector_memory = VectorMemoryStore::new(storage.pool().clone());
-    info!("Vector memory store initialized");
+    // Инициализация эмбеддинг-бэкенда
+    let embedding_backend: Arc<dyn EmbeddingBackend> = match EmbeddingFactory::create(
+        &config.model_backend,
+        &config.model_api_url,
+        config.model_api_key.as_deref(),
+        &config.model_name,
+        1536, // default embedding dimensions
+    ).await {
+        Ok(backend) => {
+            info!(
+                "Embedding backend initialized: model={}, dimensions={}",
+                backend.model_name(),
+                backend.dimensions()
+            );
+            Arc::from(backend)
+        }
+        Err(e) => {
+            warn!("Failed to initialize embedding backend: {}. Using text search only.", e);
+            // Fallback: используем простой эмбеддинг на основе хеша
+            Arc::new(StubEmbeddingBackend)
+        }
+    };
+
+    // Инициализация хранилища векторной памяти с эмбеддингами
+    let vector_memory = EmbeddingVectorMemoryStore::new(
+        VectorMemoryStore::new(storage.pool().clone()),
+        embedding_backend.clone(),
+    );
+    info!("Vector memory store initialized with embedding support");
 
     let learning = LearningCycleOrchestrator::new(storage.pool().clone());
     info!("Learning cycle orchestrator initialized");
+
+    // Инициализация реестра инструментов
+    let tool_registry = Arc::new(ToolRegistry::new());
+    // TODO: Register real tools here
+    // tool_registry.register(Arc::new(ReadFileTool));
+    // tool_registry.register(Arc::new(WriteFileTool));
+    // tool_registry.register(Arc::new(SearchCodeTool));
+    // tool_registry.register(Arc::new(MemorySearchTool));
+    // tool_registry.register(Arc::new(MemoryStoreTool));
+    info!("Tool registry initialized with {} tools", tool_registry.len());
+
+    // Инициализация подсчёта токенов
+    let token_counter = Arc::new(TokenCounter::new());
+    info!("Token counter initialized");
+
+    // Инициализация кешей
+    let response_cache = Arc::new(CacheFactory::response_cache());
+    let embedding_cache = Arc::new(CacheFactory::embedding_cache());
+    info!("Caches initialized");
 
     // Инициализация движка инференса
     let inference_config = BackendConfig {
@@ -60,8 +109,6 @@ async fn main() -> anyhow::Result<()> {
         }
         Err(e) => {
             warn!("Failed to initialize inference engine: {}. Running in degraded mode.", e);
-            // Создаём заглушку, которая всегда возвращает ошибку
-            // В продакшене здесь можно поднять fallback-бэкенд
             Arc::new(InferenceEngine::new(Arc::new(StubBackend)))
         }
     };
@@ -81,11 +128,11 @@ async fn main() -> anyhow::Result<()> {
         loop {
             interval.tick().await;
             info!("Running decay tick...");
-            match state_decay.vector_memory.decay_tick().await {
+            match state_decay.vector_memory.inner().decay_tick().await {
                 Ok(affected) => info!("Decay tick: {} entries affected", affected),
                 Err(e) => warn!("Decay tick failed: {}", e),
             }
-            match state_decay.vector_memory.archive_low_decay(0.1).await {
+            match state_decay.vector_memory.inner().archive_low_decay(0.1).await {
                 Ok(archived) => {
                     if archived > 0 {
                         info!("Archived {} entries with low decay", archived);
@@ -138,4 +185,39 @@ impl sovalune_model_runtime::ModelBackend for StubBackend {
     {
         Ok(Self)
     }
+}
+
+/// Заглушка для эмбеддинг-бэкенда.
+struct StubEmbeddingBackend;
+
+#[async_trait::async_trait]
+impl sovalune_model_runtime::EmbeddingBackend for StubEmbeddingBackend {
+    async fn embed(&self, text: &str) -> Result<Vec<f32>, sovalune_model_runtime::EmbeddingError> {
+        // Простой хеш-эмбеддинг для заглушки
+        let mut embedding = vec![0.0f32; 128];
+        for (i, byte) in text.bytes().enumerate() {
+            embedding[i % 128] += byte as f32;
+        }
+        // Нормализуем
+        let sum: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if sum > 0.0 {
+            for x in &mut embedding {
+                *x /= sum;
+            }
+        }
+        Ok(embedding)
+    }
+
+    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, sovalune_model_runtime::EmbeddingError> {
+        let mut results = Vec::new();
+        for text in texts {
+            results.push(self.embed(text).await?);
+        }
+        Ok(results)
+    }
+
+    fn dimensions(&self) -> usize { 128 }
+    fn model_name(&self) -> &str { "stub-hash" }
+
+    async fn health_check(&self) -> bool { true }
 }

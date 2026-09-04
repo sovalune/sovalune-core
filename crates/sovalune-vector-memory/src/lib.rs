@@ -26,9 +26,10 @@ pub struct Evidence {
 }
 
 /// Расширенное хранилище векторной памяти с поддержкой эмбеддингов.
+#[derive(Clone)]
 pub struct EmbeddingVectorMemoryStore {
     store: VectorMemoryStore,
-    embedding_backend: Arc<dyn EmbeddingBackend>,
+    embedding_backend: std::sync::Arc<dyn EmbeddingBackend>,
 }
 
 impl EmbeddingVectorMemoryStore {
