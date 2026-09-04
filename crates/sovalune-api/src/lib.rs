@@ -29,7 +29,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/v1/projects", get(routes::projects::list).post(routes::projects::create))
         .route("/api/v1/projects/{id}", get(routes::projects::get))
         .route("/api/v1/sessions", get(routes::sessions::list).post(routes::sessions::create))
-        .route("/api/v1/sessions/{id}/messages", get(routes::sessions::messages))
+        .route("/api/v1/sessions/{id}/messages", get(routes::sessions::messages).post(routes::sessions::add_message))
         .route("/api/v1/memory", get(routes::memory::list))
         .route("/api/v1/memory/{id}", get(routes::memory::get).patch(routes::memory::update).delete(routes::memory::delete))
         .route("/api/v1/learning-cycles", get(routes::learning::list))

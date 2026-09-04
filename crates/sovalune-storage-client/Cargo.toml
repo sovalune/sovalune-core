@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 sovalune-domain = { workspace = true }
+sovalune-storage-schema = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }

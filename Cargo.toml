@@ -36,4 +36,5 @@ sovalune-config = { path = "crates/sovalune-config" }
 sovalune-api = { path = "crates/sovalune-api" }
 sovalune-vector-memory = { path = "crates/sovalune-vector-memory" }
 sovalune-self-learning = { path = "crates/sovalune-self-learning" }
+sovalune-storage-schema = { path = "crates/sovalune-storage-schema" }
 sovalune-instruction-sdk = { path = "crates/sovalune-instruction-sdk" }

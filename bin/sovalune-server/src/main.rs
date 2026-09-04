@@ -4,12 +4,11 @@ use sovalune_config::AppConfig;
 use sovalune_storage_client::StorageClient;
 use sovalune_vector_memory::VectorMemoryStore;
 use sovalune_self_learning::LearningCycleOrchestrator;
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize tracing
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -20,42 +19,55 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting Sovalune Server...");
 
-    // Load configuration
     let config = AppConfig::from_env()?;
     info!("Configuration loaded");
 
-    // Connect to storage
     let storage = StorageClient::new(&config.storage_url).await?;
     info!("Connected to storage");
 
-    // Run migrations
     storage.run_migrations().await?;
     info!("Migrations completed");
 
-    // Connect to NATS
     let nats = NatsClient::new(&config.nats_url).await?;
     info!("Connected to NATS");
 
-    // Initialize vector memory store
     let vector_memory = VectorMemoryStore::new(storage.pool().clone());
     info!("Vector memory store initialized");
 
-    // Initialize learning cycle orchestrator
     let learning = LearningCycleOrchestrator::new(storage.pool().clone());
     info!("Learning cycle orchestrator initialized");
 
-    // Create app state
     let state = AppState {
-        storage,
-        nats,
-        vector_memory,
-        learning,
+        storage: storage.clone(),
+        nats: nats.clone(),
+        vector_memory: vector_memory.clone(),
+        learning: learning.clone(),
     };
 
-    // Create router
+    let state_decay = state.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600));
+        loop {
+            interval.tick().await;
+            info!("Running decay tick...");
+            match state_decay.vector_memory.decay_tick().await {
+                Ok(affected) => info!("Decay tick: {} entries affected", affected),
+                Err(e) => warn!("Decay tick failed: {}", e),
+            }
+            match state_decay.vector_memory.archive_low_decay(0.1).await {
+                Ok(archived) => {
+                    if archived > 0 {
+                        info!("Archived {} entries with low decay", archived);
+                    }
+                }
+                Err(e) => warn!("Archive low decay failed: {}", e),
+            }
+        }
+    });
+    info!("Decay tick background task started");
+
     let app = create_router(state);
 
-    // Start server
     let addr = format!("{}:{}", config.server_host, config.server_port);
     info!("Server listening on {}", addr);
     

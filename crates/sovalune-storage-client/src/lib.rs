@@ -32,7 +32,7 @@ impl StorageClient {
     }
     
     pub async fn run_migrations(&self) -> anyhow::Result<()> {
-        sqlx::migrate!("../sovalune-storage-schema/migrations")
+        sovalune_storage_schema::MIGRATIONS
             .run(&self.pool)
             .await?;
         
