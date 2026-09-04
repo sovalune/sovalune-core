@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
 
 COPY Cargo.toml Cargo.lock ./
 
+# Copy all crate manifests first for dependency caching
 COPY crates/sovalune-storage-schema/Cargo.toml crates/sovalune-storage-schema/Cargo.toml
 COPY crates/sovalune-storage-schema/migrations crates/sovalune-storage-schema/migrations
 COPY crates/sovalune-storage-schema/src crates/sovalune-storage-schema/src
@@ -35,6 +36,9 @@ RUN mkdir -p crates/sovalune-self-learning/src && touch crates/sovalune-self-lea
 COPY crates/sovalune-instruction-sdk/Cargo.toml crates/sovalune-instruction-sdk/Cargo.toml
 RUN mkdir -p crates/sovalune-instruction-sdk/src && touch crates/sovalune-instruction-sdk/src/lib.rs
 
+COPY crates/sovalune-model-runtime/Cargo.toml crates/sovalune-model-runtime/Cargo.toml
+RUN mkdir -p crates/sovalune-model-runtime/src && touch crates/sovalune-model-runtime/src/lib.rs
+
 COPY crates/sovalune-api/Cargo.toml crates/sovalune-api/Cargo.toml
 RUN mkdir -p crates/sovalune-api/src && touch crates/sovalune-api/src/lib.rs
 
@@ -43,6 +47,7 @@ RUN mkdir -p bin/sovalune-server/src && touch bin/sovalune-server/src/main.rs
 
 RUN cargo build --release || true
 
+# Copy actual source code
 COPY crates crates
 COPY bin bin
 
@@ -54,6 +59,7 @@ RUN touch crates/sovalune-storage-schema/src/lib.rs \
     && touch crates/sovalune-vector-memory/src/lib.rs \
     && touch crates/sovalune-self-learning/src/lib.rs \
     && touch crates/sovalune-instruction-sdk/src/lib.rs \
+    && touch crates/sovalune-model-runtime/src/lib.rs \
     && touch crates/sovalune-api/src/lib.rs \
     && touch bin/sovalune-server/src/main.rs
 
@@ -64,6 +70,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
