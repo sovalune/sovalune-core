@@ -21,7 +21,8 @@ pub fn create_router(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_headers(Any)
+        .max_age(std::time::Duration::from_secs(3600));
 
     Router::new()
         .route("/health/live", get(routes::health::live))
