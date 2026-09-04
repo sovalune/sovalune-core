@@ -31,6 +31,7 @@ pub mod cache;
 pub mod context;
 pub mod embedding;
 pub mod engine;
+pub mod executors;
 pub mod retry;
 pub mod tokenizer;
 pub mod tools;

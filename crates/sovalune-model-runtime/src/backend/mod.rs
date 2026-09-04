@@ -90,4 +90,9 @@ pub trait ModelBackend: Send + Sync {
     async fn from_config(config: &BackendConfig) -> Result<Self, InferenceError>
     where
         Self: Sized;
+
+    /// Оценивает количество токенов в тексте (по умолчанию — простая оценка).
+    fn estimate_tokens(&self, text: &str) -> u32 {
+        (text.len() as u32).div_ceil(4)
+    }
 }
