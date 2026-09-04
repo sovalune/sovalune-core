@@ -59,7 +59,20 @@ pub fn create_router(state: AppState) -> Router {
                 .delete(routes::memory::delete),
         )
         .route("/api/v1/learning-cycles", get(routes::learning::list))
+        .route("/api/v1/learning-cycles", post(routes::learning::start))
         .route("/api/v1/learning-cycles/{id}", get(routes::learning::get))
+        .route(
+            "/api/v1/learning-cycles/{id}/advance",
+            post(routes::learning::advance),
+        )
+        .route(
+            "/api/v1/learning-cycles/{id}/retry",
+            post(routes::learning::retry),
+        )
+        .route(
+            "/api/v1/learning-cycles/{id}/run",
+            post(routes::learning::run),
+        )
         .route(
             "/api/v1/learning-cycles/{id}/evidence",
             get(routes::learning::evidence),
