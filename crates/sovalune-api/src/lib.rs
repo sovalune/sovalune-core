@@ -6,6 +6,7 @@ use axum::{
 };
 use sovalune_bus::NatsClient;
 use sovalune_model_runtime::InferenceEngine;
+use sovalune_model_runtime::ToolRegistry;
 use sovalune_self_learning::LearningCycleOrchestrator;
 use sovalune_storage_client::StorageClient;
 use sovalune_vector_memory::EmbeddingVectorMemoryStore;
@@ -20,6 +21,7 @@ pub struct AppState {
     pub vector_memory: EmbeddingVectorMemoryStore,
     pub learning: LearningCycleOrchestrator,
     pub inference: Arc<InferenceEngine>,
+    pub tool_registry: Arc<ToolRegistry>,
 }
 
 pub fn create_router(state: AppState) -> Router {

@@ -1,6 +1,7 @@
 use sovalune_api::{create_router, AppState};
 use sovalune_bus::NatsClient;
 use sovalune_config::AppConfig;
+use sovalune_model_runtime::executors::create_default_registry;
 use sovalune_model_runtime::{
     BackendConfig, CacheFactory, EmbeddingBackend, EmbeddingFactory, InferenceEngine, TokenCounter,
     ToolRegistry,
@@ -124,12 +125,17 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    // Инициализация реестра инструментов
+    let tool_registry = Arc::new(create_default_registry());
+    info!("Tool registry initialized: {} tools", tool_registry.len());
+
     let state = AppState {
         storage: storage.clone(),
         nats: nats.clone(),
         vector_memory: vector_memory.clone(),
         learning: learning.clone(),
         inference: inference_engine,
+        tool_registry,
     };
 
     // Фоновая задача decay tick
