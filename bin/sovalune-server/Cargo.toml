@@ -10,8 +10,11 @@ sovalune-bus = { workspace = true }
 sovalune-config = { workspace = true }
 sovalune-vector-memory = { workspace = true }
 sovalune-self-learning = { workspace = true }
+sovalune-model-runtime = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }

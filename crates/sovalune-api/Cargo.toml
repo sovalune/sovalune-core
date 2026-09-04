@@ -9,6 +9,7 @@ sovalune-storage-client = { workspace = true }
 sovalune-bus = { workspace = true }
 sovalune-vector-memory = { workspace = true }
 sovalune-self-learning = { workspace = true }
+sovalune-model-runtime = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }

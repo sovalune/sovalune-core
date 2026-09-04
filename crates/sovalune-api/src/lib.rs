@@ -5,6 +5,7 @@ use sovalune_bus::NatsClient;
 use sovalune_storage_client::StorageClient;
 use sovalune_vector_memory::VectorMemoryStore;
 use sovalune_self_learning::LearningCycleOrchestrator;
+use sovalune_model_runtime::InferenceEngine;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -15,6 +16,7 @@ pub struct AppState {
     pub nats: NatsClient,
     pub vector_memory: VectorMemoryStore,
     pub learning: LearningCycleOrchestrator,
+    pub inference: Arc<InferenceEngine>,
 }
 
 pub fn create_router(state: AppState) -> Router {
