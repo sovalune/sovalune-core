@@ -23,7 +23,7 @@ use tracing::{info, error, warn};
 use uuid::Uuid;
 
 use crate::AppState;
-use sovalune_model_runtime::{ContextBuilder, GenerationConfig, InferenceRequest, TokenEvent};
+use sovalune_model_runtime::{ContextBuilder, GenerationConfig, InferenceRequest};
 use sovalune_storage_client::{SessionRepository, MemoryRepository, CreateMessage, MemoryFilter};
 
 /// Сообщение от клиента.

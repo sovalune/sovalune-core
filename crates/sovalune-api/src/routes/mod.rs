@@ -4,3 +4,4 @@ pub mod sessions;
 pub mod memory;
 pub mod learning;
 pub mod ws;
+pub mod inference;
