@@ -56,7 +56,7 @@ impl StageHandler for VerifyingHandler {
             evidence.len(),
             evidence
                 .iter()
-                .map(|e| format!("{}(tier={})", &e.source_type, e.trust_tier))
+                .map(|e| format!("{}(tier={})", e.source_type, e.trust_tier))
                 .collect::<Vec<_>>()
                 .join(", ")
         );
