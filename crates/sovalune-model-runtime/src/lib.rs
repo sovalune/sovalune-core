@@ -51,4 +51,7 @@ pub use tools::{
     ToolCall, ToolCallManager, ToolCallParser, ToolDefinition, ToolError, ToolExecutor,
     ToolRegistry, ToolResult,
 };
+pub use executors::{
+    create_default_registry, create_registry, MemorySearchBackend, MemoryWriteBackend,
+};
 pub use types::*;

@@ -335,23 +335,31 @@ impl ToolExecutor for RunTestsTool {
     }
 }
 
-/// Создаёт реестр с инструментами по умолчанию.
+/// Создаёт реестр с инструментами по умолчанию (stub хранилище).
 pub fn create_default_registry() -> super::ToolRegistry {
     let mut registry = super::ToolRegistry::new();
 
-    // Память — используем заглушки для хранилища
-    // В production передаются реальные хранилища из server main.rs
     let memory_store = Arc::new(StubMemoryStore);
     registry.register(Arc::new(MemorySearchTool::new(memory_store.clone())));
     registry.register(Arc::new(MemoryWriteTool::new(memory_store)));
-
-    // Код
     registry.register(Arc::new(CodeExecuteTool));
-
-    // Веб
     registry.register(Arc::new(WebSearchTool));
+    registry.register(Arc::new(RunTestsTool));
 
-    // Тесты
+    registry
+}
+
+/// Создаёт реестр с реальными хранилищами памяти.
+pub fn create_registry(
+    search_backend: Arc<dyn MemorySearchBackend>,
+    write_backend: Arc<dyn MemoryWriteBackend>,
+) -> super::ToolRegistry {
+    let mut registry = super::ToolRegistry::new();
+
+    registry.register(Arc::new(MemorySearchTool::new(search_backend)));
+    registry.register(Arc::new(MemoryWriteTool::new(write_backend)));
+    registry.register(Arc::new(CodeExecuteTool));
+    registry.register(Arc::new(WebSearchTool));
     registry.register(Arc::new(RunTestsTool));
 
     registry

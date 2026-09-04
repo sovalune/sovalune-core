@@ -12,6 +12,7 @@ sovalune-self-learning = { workspace = true }
 sovalune-model-runtime = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
+tokio-util = "0.7"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

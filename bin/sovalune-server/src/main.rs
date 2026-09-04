@@ -1,17 +1,20 @@
+use async_trait::async_trait;
 use sovalune_api::{create_router, AppState};
 use sovalune_bus::NatsClient;
 use sovalune_config::AppConfig;
-use sovalune_model_runtime::executors::create_default_registry;
 use sovalune_model_runtime::{
+    executors::{
+        create_registry, MemorySearchBackend, MemorySearchResult, MemoryWriteBackend,
+    },
     BackendConfig, CacheFactory, EmbeddingBackend, EmbeddingFactory, InferenceEngine, TokenCounter,
-    ToolRegistry,
 };
 use sovalune_self_learning::LearningCycleOrchestrator;
-use sovalune_storage_client::StorageClient;
+use sovalune_storage_client::{MemoryFilter, StorageClient};
 use sovalune_vector_memory::{EmbeddingVectorMemoryStore, VectorMemoryStore};
 use std::sync::Arc;
 use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -37,13 +40,13 @@ async fn main() -> anyhow::Result<()> {
     let nats = NatsClient::new(&config.nats_url).await?;
     info!("Connected to NATS");
 
-    // Инициализация эмбеддинг-бэкенда
+    // Initialize embedding backend
     let embedding_backend: Arc<dyn EmbeddingBackend> = match EmbeddingFactory::create(
         &config.model_backend,
         &config.model_api_url,
         config.model_api_key.as_deref(),
         &config.model_name,
-        1536, // default embedding dimensions
+        1536,
     )
     .await
     {
@@ -60,12 +63,11 @@ async fn main() -> anyhow::Result<()> {
                 "Failed to initialize embedding backend: {}. Using text search only.",
                 e
             );
-            // Fallback: используем простой эмбеддинг на основе хеша
             Arc::new(StubEmbeddingBackend)
         }
     };
 
-    // Инициализация хранилища векторной памяти с эмбеддингами
+    // Initialize vector memory store with embeddings
     let vector_memory = EmbeddingVectorMemoryStore::new(
         VectorMemoryStore::new(storage.pool().clone()),
         embedding_backend.clone(),
@@ -75,29 +77,7 @@ async fn main() -> anyhow::Result<()> {
     let learning = LearningCycleOrchestrator::new(storage.pool().clone());
     info!("Learning cycle orchestrator initialized");
 
-    // Инициализация реестра инструментов
-    let tool_registry = Arc::new(ToolRegistry::new());
-    // TODO: Register real tools here
-    // tool_registry.register(Arc::new(ReadFileTool));
-    // tool_registry.register(Arc::new(WriteFileTool));
-    // tool_registry.register(Arc::new(SearchCodeTool));
-    // tool_registry.register(Arc::new(MemorySearchTool));
-    // tool_registry.register(Arc::new(MemoryStoreTool));
-    info!(
-        "Tool registry initialized with {} tools",
-        tool_registry.len()
-    );
-
-    // Инициализация подсчёта токенов
-    let _token_counter = Arc::new(TokenCounter::new());
-    info!("Token counter initialized");
-
-    // Инициализация кешей
-    let _response_cache = Arc::new(CacheFactory::response_cache());
-    let _embedding_cache = Arc::new(CacheFactory::embedding_cache());
-    info!("Caches initialized");
-
-    // Инициализация движка инференса
+    // Initialize inference engine
     let inference_config = BackendConfig {
         backend_type: config.model_backend.clone(),
         api_url: config.model_api_url.clone(),
@@ -125,9 +105,22 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    // Инициализация реестра инструментов
-    let tool_registry = Arc::new(create_default_registry());
+    // Initialize tool registry with real memory backends
+    let memory_search = Arc::new(RealMemorySearchBackend {
+        vector_memory: vector_memory.clone(),
+    });
+    let memory_write = Arc::new(RealMemoryWriteBackend {
+        vector_memory: vector_memory.clone(),
+    });
+    let tool_registry = Arc::new(create_registry(memory_search, memory_write));
     info!("Tool registry initialized: {} tools", tool_registry.len());
+
+    let _token_counter = Arc::new(TokenCounter::new());
+    info!("Token counter initialized");
+
+    let _response_cache = Arc::new(CacheFactory::response_cache());
+    let _embedding_cache = Arc::new(CacheFactory::embedding_cache());
+    info!("Caches initialized");
 
     let state = AppState {
         storage: storage.clone(),
@@ -138,7 +131,7 @@ async fn main() -> anyhow::Result<()> {
         tool_registry,
     };
 
-    // Фоновая задача decay tick
+    // Background decay tick task
     let state_decay = state.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600));
@@ -177,10 +170,10 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Заглушка для бэкенда моделей, когда реальный бэкенд недоступен.
+/// Stub backend for when real model backend is unavailable.
 struct StubBackend;
 
-#[async_trait::async_trait]
+#[async_trait]
 impl sovalune_model_runtime::ModelBackend for StubBackend {
     async fn stream_inference(
         &self,
@@ -218,18 +211,16 @@ impl sovalune_model_runtime::ModelBackend for StubBackend {
     }
 }
 
-/// Заглушка для эмбеддинг-бэкенда.
+/// Stub embedding backend.
 struct StubEmbeddingBackend;
 
-#[async_trait::async_trait]
-impl sovalune_model_runtime::EmbeddingBackend for StubEmbeddingBackend {
+#[async_trait]
+impl EmbeddingBackend for StubEmbeddingBackend {
     async fn embed(&self, text: &str) -> Result<Vec<f32>, sovalune_model_runtime::EmbeddingError> {
-        // Простой хеш-эмбеддинг для заглушки
         let mut embedding = vec![0.0f32; 128];
         for (i, byte) in text.bytes().enumerate() {
             embedding[i % 128] += byte as f32;
         }
-        // Нормализуем
         let sum: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
         if sum > 0.0 {
             for x in &mut embedding {
@@ -259,5 +250,60 @@ impl sovalune_model_runtime::EmbeddingBackend for StubEmbeddingBackend {
 
     async fn health_check(&self) -> bool {
         true
+    }
+}
+
+/// Real memory search backend wrapping the vector memory store.
+struct RealMemorySearchBackend {
+    vector_memory: EmbeddingVectorMemoryStore,
+}
+
+#[async_trait]
+impl MemorySearchBackend for RealMemorySearchBackend {
+    async fn search(&self, query: &str, top_k: usize) -> Result<Vec<MemorySearchResult>, String> {
+        let filter = MemoryFilter {
+            project_id: None,
+            tier: None,
+            min_confidence: Some(0.3),
+            archived: Some(false),
+            query: Some(query.to_string()),
+        };
+
+        match self
+            .vector_memory
+            .search_by_text_with_embedding(query, filter, top_k)
+            .await
+        {
+            Ok(scored) => Ok(scored
+                .into_iter()
+                .map(|sm| MemorySearchResult {
+                    content: sm.entry.content,
+                    score: sm.score,
+                    tier: sm.entry.tier,
+                })
+                .collect()),
+            Err(e) => Err(format!("Search failed: {}", e)),
+        }
+    }
+}
+
+/// Real memory write backend wrapping the vector memory store.
+struct RealMemoryWriteBackend {
+    vector_memory: EmbeddingVectorMemoryStore,
+}
+
+#[async_trait]
+impl MemoryWriteBackend for RealMemoryWriteBackend {
+    async fn write(&self, content: &str, metadata: serde_json::Value) -> Result<String, String> {
+        let project_id = Uuid::nil();
+
+        match self
+            .vector_memory
+            .insert_raw_with_embedding(project_id, content, metadata)
+            .await
+        {
+            Ok(id) => Ok(id.to_string()),
+            Err(e) => Err(format!("Write failed: {}", e)),
+        }
     }
 }
