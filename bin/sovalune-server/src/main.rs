@@ -3,9 +3,7 @@ use sovalune_api::{create_router, AppState};
 use sovalune_bus::NatsClient;
 use sovalune_config::AppConfig;
 use sovalune_model_runtime::{
-    executors::{
-        create_registry, MemorySearchBackend, MemorySearchResult, MemoryWriteBackend,
-    },
+    executors::{create_registry, MemorySearchBackend, MemorySearchResult, MemoryWriteBackend},
     BackendConfig, CacheFactory, EmbeddingBackend, EmbeddingFactory, InferenceEngine, TokenCounter,
 };
 use sovalune_self_learning::LearningCycleOrchestrator;

@@ -28,11 +28,7 @@ impl StageHandler for DetectedHandler {
             Ok(response) => {
                 orchestrator
                     .add_evidence(
-                        cycle_id,
-                        "analysis",
-                        None,
-                        &response,
-                        2, // System-generated analysis
+                        cycle_id, "analysis", None, &response, 2, // System-generated analysis
                     )
                     .await?;
                 response
@@ -43,7 +39,11 @@ impl StageHandler for DetectedHandler {
             }
         };
 
-        tracing::info!("Detected analysis for cycle {}: {}", cycle_id, &analysis[..200.min(analysis.len())]);
+        tracing::info!(
+            "Detected analysis for cycle {}: {}",
+            cycle_id,
+            &analysis[..200.min(analysis.len())]
+        );
 
         orchestrator.advance_cycle(cycle_id).await?;
 

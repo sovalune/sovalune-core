@@ -1,6 +1,6 @@
 use crate::{LearningCycle, LearningCycleStatus};
 use sovalune_bus::NatsClient;
-use sovalune_model_runtime::{InferenceEngine, InferenceRequest, GenerationConfig};
+use sovalune_model_runtime::{GenerationConfig, InferenceEngine, InferenceRequest};
 use sovalune_storage_client::{
     CreateEvidence, CreateLearningCycle, CreateTestResult, LearningCycleEvidence,
     LearningCycleRepository, LearningCycleTestResult,
@@ -119,7 +119,9 @@ impl LearningCycleOrchestrator {
             query: Some(query.to_string()),
         };
 
-        let results = store.search_by_text_with_embedding(query, filter, top_k).await?;
+        let results = store
+            .search_by_text_with_embedding(query, filter, top_k)
+            .await?;
         Ok(results.into_iter().map(|sm| sm.entry.content).collect())
     }
 

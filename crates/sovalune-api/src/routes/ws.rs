@@ -102,8 +102,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     let (sender, mut receiver) = socket.split();
     let sender = Arc::new(Mutex::new(sender));
     let request_id = Uuid::new_v4().to_string();
-    let cancel_tokens: CancelTokenMap =
-        Arc::new(Mutex::new(HashMap::new()));
+    let cancel_tokens: CancelTokenMap = Arc::new(Mutex::new(HashMap::new()));
 
     info!("WebSocket connected: {}", request_id);
 
@@ -159,8 +158,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         };
 
                         let inference_request_id = Uuid::new_v4();
-                        let session_repo =
-                            SessionRepository::new(state.storage.pool().clone());
+                        let session_repo = SessionRepository::new(state.storage.pool().clone());
 
                         if let Err(e) = session_repo
                             .create_message(CreateMessage {
@@ -202,10 +200,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             }
                             Err(e) => {
                                 warn!("Failed to search memory with embedding: {}", e);
-                                let memory_repo =
-                                    sovalune_storage_client::MemoryRepository::new(
-                                        state.storage.pool().clone(),
-                                    );
+                                let memory_repo = sovalune_storage_client::MemoryRepository::new(
+                                    state.storage.pool().clone(),
+                                );
                                 let fallback_filter = MemoryFilter {
                                     project_id: Some(project_uuid),
                                     tier: None,
@@ -221,14 +218,14 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         };
 
                         // Load message history
-                        let history =
-                            match session_repo.get_recent_messages(session_uuid, 20).await {
-                                Ok(msgs) => msgs,
-                                Err(e) => {
-                                    warn!("Failed to fetch message history: {}", e);
-                                    Vec::new()
-                                }
-                            };
+                        let history = match session_repo.get_recent_messages(session_uuid, 20).await
+                        {
+                            Ok(msgs) => msgs,
+                            Err(e) => {
+                                warn!("Failed to fetch message history: {}", e);
+                                Vec::new()
+                            }
+                        };
 
                         // Build system prompt with tool descriptions
                         let tool_defs = state.tool_registry.definitions();
@@ -239,10 +236,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                 .iter()
                                 .map(|d| format!("- {}: {}", d.name, d.description))
                                 .collect();
-                            format!(
-                                "\n\nYou have access to these tools:\n{}",
-                                defs.join("\n")
-                            )
+                            format!("\n\nYou have access to these tools:\n{}", defs.join("\n"))
                         };
 
                         let system_prompt = format!(
@@ -256,8 +250,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             tools_desc, project_id
                         );
 
-                        let mut builder =
-                            ContextBuilder::new(128_000).with_system(&system_prompt);
+                        let mut builder = ContextBuilder::new(128_000).with_system(&system_prompt);
 
                         for entry in &memory_entries {
                             builder = builder.with_memory_section(&entry.tier, &entry.content);
@@ -294,7 +287,10 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
                                 iteration += 1;
                                 if iteration > MAX_TOOL_ITERATIONS {
-                                    warn!("Max tool iterations reached for session {}", session_clone);
+                                    warn!(
+                                        "Max tool iterations reached for session {}",
+                                        session_clone
+                                    );
                                     break;
                                 }
 
@@ -365,10 +361,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                         }
 
                                         // Execute tool calls
-                                        info!(
-                                            "Found {} tool calls in response",
-                                            tool_calls.len()
-                                        );
+                                        info!("Found {} tool calls in response", tool_calls.len());
 
                                         let mut tool_results: Vec<ToolResult> = Vec::new();
                                         for tc in &tool_calls {
@@ -380,26 +373,33 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                             let mut s = sender_clone.lock().await;
                                             let _ = s
                                                 .send(Message::Text(
-                                                    serde_json::to_string(&started)
-                                                        .unwrap()
-                                                        .into(),
+                                                    serde_json::to_string(&started).unwrap().into(),
                                                 ))
                                                 .await;
                                             drop(s);
 
-                                            match state_clone.tool_registry.execute(tc, "ws_user").await
+                                            match state_clone
+                                                .tool_registry
+                                                .execute(tc, "ws_user")
+                                                .await
                                             {
                                                 Ok(result) => {
-                                                    let finished = ServerMessage::ToolCallFinished {
-                                                        session_id: session_clone.clone(),
-                                                        tool: tc.name.clone(),
-                                                        result_summary: format!(
-                                                            "success={}, output={}",
-                                                            result.success,
-                                                            &result.output.to_string()
-                                                                [..100.min(result.output.to_string().len())]
-                                                        ),
-                                                    };
+                                                    let finished =
+                                                        ServerMessage::ToolCallFinished {
+                                                            session_id: session_clone.clone(),
+                                                            tool: tc.name.clone(),
+                                                            result_summary: format!(
+                                                                "success={}, output={}",
+                                                                result.success,
+                                                                &result.output.to_string()[..100
+                                                                    .min(
+                                                                        result
+                                                                            .output
+                                                                            .to_string()
+                                                                            .len()
+                                                                    )]
+                                                            ),
+                                                        };
                                                     let mut s = sender_clone.lock().await;
                                                     let _ = s
                                                         .send(Message::Text(
@@ -427,9 +427,8 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                         }
 
                                         // Build new context with tool results
-                                        let mut tool_section = String::from(
-                                            "\n\n## Tool Results\n",
-                                        );
+                                        let mut tool_section =
+                                            String::from("\n\n## Tool Results\n");
                                         for tr in &tool_results {
                                             tool_section.push_str(&format!(
                                                 "\n### {} (call_id: {})\n{}\n",
@@ -441,19 +440,15 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                         }
 
                                         // Rebuild context with tool results
-                                        let mut builder =
-                                            ContextBuilder::new(128_000).with_system(&system_prompt);
+                                        let mut builder = ContextBuilder::new(128_000)
+                                            .with_system(&system_prompt);
                                         for entry in &memory_entries {
-                                            builder = builder.with_memory_section(
-                                                &entry.tier,
-                                                &entry.content,
-                                            );
+                                            builder = builder
+                                                .with_memory_section(&entry.tier, &entry.content);
                                         }
                                         for msg in &history {
-                                            builder = builder.with_history_entry(
-                                                &msg.role,
-                                                &msg.content,
-                                            );
+                                            builder =
+                                                builder.with_history_entry(&msg.role, &msg.content);
                                         }
                                         builder = builder.with_user_input(&format!(
                                             "{}\n\nUser original request: {}{}",
@@ -499,9 +494,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                             let mut s = sender_clone.lock().await;
                             let _ = s
                                 .send(Message::Text(
-                                    serde_json::to_string(&complete)
-                                        .unwrap()
-                                        .into(),
+                                    serde_json::to_string(&complete).unwrap().into(),
                                 ))
                                 .await;
 

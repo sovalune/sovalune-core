@@ -51,14 +51,12 @@ impl StageHandler for TestingHandler {
                 let rate = evaluation
                     .lines()
                     .find_map(|line| {
-                        line.split("\"pass_rate\"")
-                            .nth(1)
-                            .and_then(|s| {
-                                s.trim_matches(|c: char| !c.is_ascii_digit() && c != '.')
-                                    .split(',')
-                                    .next()
-                                    .and_then(|v| v.parse::<f32>().ok())
-                            })
+                        line.split("\"pass_rate\"").nth(1).and_then(|s| {
+                            s.trim_matches(|c: char| !c.is_ascii_digit() && c != '.')
+                                .split(',')
+                                .next()
+                                .and_then(|v| v.parse::<f32>().ok())
+                        })
                     })
                     .unwrap_or(0.8);
 
