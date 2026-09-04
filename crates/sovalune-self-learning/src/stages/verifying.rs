@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 pub struct VerifyingHandler {
+    #[allow(dead_code)]
     min_confidence: f32,
 }
 
@@ -32,10 +33,85 @@ impl StageHandler for VerifyingHandler {
                 .map(|_| ());
         }
 
-        let confidence = 0.8;
-        orchestrator.update_confidence(cycle_id, confidence).await?;
+        // Compute confidence based on evidence quality
+        // Higher trust tiers contribute more to confidence
+        let total_trust: i32 = evidence.iter().map(|e| e.trust_tier).sum();
+        let count = evidence.len() as f32;
+        let avg_trust = total_trust as f32 / count;
 
-        if confidence < self.min_confidence {
+        // Normalize to 0-1 range (trust tiers are 1-5)
+        let trust_score = (avg_trust / 5.0).min(1.0);
+
+        // Bonus for multiple independent sources
+        let diversity_bonus = (count / 3.0).min(0.2);
+
+        let confidence = (trust_score + diversity_bonus).min(1.0);
+
+        // Use LLM to cross-verify findings if available
+        let verify_prompt = format!(
+            "Verify the following research findings for consistency and correctness.\n\n\
+             Evidence count: {}\n\
+             Trust scores: {}\n\
+             \nRate the overall reliability from 0.0 to 1.0 and explain why.",
+            evidence.len(),
+            evidence
+                .iter()
+                .map(|e| format!("{}(tier={})", &e.source_type, e.trust_tier))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        let llm_confidence = match orchestrator.run_inference(&verify_prompt).await {
+            Ok(response) => {
+                // Try to extract a numeric confidence from the response
+                let extracted = response
+                    .lines()
+                    .find_map(|line| {
+                        line.parse::<f32>().ok().or_else(|| {
+                            line.split_whitespace().find_map(|word| {
+                                word.trim_matches(|c: char| !c.is_ascii_digit() && c != '.')
+                                    .parse::<f32>()
+                                    .ok()
+                            })
+                        })
+                    })
+                    .unwrap_or(confidence);
+
+                // Average LLM confidence with trust-based confidence
+                (confidence + extracted) / 2.0
+            }
+            Err(e) => {
+                tracing::warn!("LLM verification unavailable: {}", e);
+                confidence
+            }
+        };
+
+        orchestrator
+            .update_confidence(cycle_id, llm_confidence)
+            .await?;
+
+        tracing::info!(
+            "Verification for cycle {}: confidence={:.3} (min={})",
+            cycle_id,
+            llm_confidence,
+            self.min_confidence
+        );
+
+        orchestrator
+            .add_test_result(
+                cycle_id,
+                "verifying",
+                llm_confidence >= self.min_confidence,
+                serde_json::json!({
+                    "confidence": llm_confidence,
+                    "min_required": self.min_confidence,
+                    "evidence_count": evidence.len(),
+                    "avg_trust_tier": avg_trust,
+                }),
+            )
+            .await?;
+
+        if llm_confidence < self.min_confidence {
             return orchestrator
                 .fail_cycle(cycle_id, "INSUFFICIENT_CONFIDENCE")
                 .await

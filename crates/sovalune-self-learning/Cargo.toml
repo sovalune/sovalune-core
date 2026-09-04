@@ -7,6 +7,8 @@ edition = "2021"
 sovalune-domain = { workspace = true }
 sovalune-storage-client = { workspace = true }
 sovalune-bus = { workspace = true }
+sovalune-model-runtime = { workspace = true }
+sovalune-vector-memory = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
@@ -17,3 +19,4 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 async-trait = "0.1"
+futures = "0.3"

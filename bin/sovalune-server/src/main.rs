@@ -74,9 +74,6 @@ async fn main() -> anyhow::Result<()> {
     );
     info!("Vector memory store initialized with embedding support");
 
-    let learning = LearningCycleOrchestrator::new(storage.pool().clone());
-    info!("Learning cycle orchestrator initialized");
-
     // Initialize inference engine
     let inference_config = BackendConfig {
         backend_type: config.model_backend.clone(),
@@ -121,6 +118,15 @@ async fn main() -> anyhow::Result<()> {
     let _response_cache = Arc::new(CacheFactory::response_cache());
     let _embedding_cache = Arc::new(CacheFactory::embedding_cache());
     info!("Caches initialized");
+
+    // Initialize learning cycle orchestrator with backends
+    let learning = LearningCycleOrchestrator::with_backends(
+        storage.pool().clone(),
+        Some(nats.clone()),
+        inference_engine.clone(),
+        vector_memory.clone(),
+    );
+    info!("Learning cycle orchestrator initialized with backends");
 
     let state = AppState {
         storage: storage.clone(),

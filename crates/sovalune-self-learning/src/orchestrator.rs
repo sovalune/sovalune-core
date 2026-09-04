@@ -1,10 +1,13 @@
 use crate::{LearningCycle, LearningCycleStatus};
 use sovalune_bus::NatsClient;
+use sovalune_model_runtime::{InferenceEngine, InferenceRequest, GenerationConfig};
 use sovalune_storage_client::{
     CreateEvidence, CreateLearningCycle, CreateTestResult, LearningCycleEvidence,
     LearningCycleRepository, LearningCycleTestResult,
 };
+use sovalune_vector_memory::EmbeddingVectorMemoryStore;
 use sqlx::PgPool;
+use std::sync::Arc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
@@ -12,6 +15,8 @@ use uuid::Uuid;
 pub struct LearningCycleOrchestrator {
     repo: LearningCycleRepository,
     nats: Option<NatsClient>,
+    pub inference: Option<Arc<InferenceEngine>>,
+    pub vector_memory: Option<EmbeddingVectorMemoryStore>,
     max_retries: i32,
     #[allow(dead_code)]
     min_confidence: f32,
@@ -23,6 +28,8 @@ impl LearningCycleOrchestrator {
         Self {
             repo: LearningCycleRepository::new(pool),
             nats: None,
+            inference: None,
+            vector_memory: None,
             max_retries: 3,
             min_confidence: 0.7,
             max_failed_cycles: 5,
@@ -33,10 +40,87 @@ impl LearningCycleOrchestrator {
         Self {
             repo: LearningCycleRepository::new(pool),
             nats: Some(nats),
+            inference: None,
+            vector_memory: None,
             max_retries: 3,
             min_confidence: 0.7,
             max_failed_cycles: 5,
         }
+    }
+
+    pub fn with_backends(
+        pool: PgPool,
+        nats: Option<NatsClient>,
+        inference: Arc<InferenceEngine>,
+        vector_memory: EmbeddingVectorMemoryStore,
+    ) -> Self {
+        Self {
+            repo: LearningCycleRepository::new(pool),
+            nats,
+            inference: Some(inference),
+            vector_memory: Some(vector_memory),
+            max_retries: 3,
+            min_confidence: 0.7,
+            max_failed_cycles: 5,
+        }
+    }
+
+    /// Run a single inference call (non-streaming, collect full response).
+    pub async fn run_inference(&self, prompt: &str) -> anyhow::Result<String> {
+        let engine = self
+            .inference
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No inference engine configured"))?;
+
+        let request = InferenceRequest {
+            id: Uuid::new_v4(),
+            session_id: Uuid::new_v4().to_string(),
+            project_id: Uuid::nil().to_string(),
+            context: vec![],
+            user_input: prompt.to_string(),
+            config: GenerationConfig {
+                max_tokens: 4096,
+                temperature: 0.3,
+                top_p: 0.9,
+                stream: false,
+            },
+        };
+
+        let mut stream = engine.stream_infer(request).await?;
+        let mut content = String::new();
+        use futures::StreamExt;
+        while let Some(event) = stream.next().await {
+            match event {
+                Ok(token) => {
+                    if token.finished {
+                        break;
+                    }
+                    content.push_str(&token.delta);
+                }
+                Err(e) => return Err(anyhow::anyhow!("Inference error: {}", e)),
+            }
+        }
+        Ok(content)
+    }
+
+    /// Search vector memory for relevant context.
+    pub async fn search_memory(&self, query: &str, top_k: usize) -> anyhow::Result<Vec<String>> {
+        let store = self
+            .vector_memory
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No vector memory configured"))?;
+
+        use sovalune_storage_client::MemoryFilter;
+        let filter = MemoryFilter {
+            project_id: None,
+            tier: None,
+            min_confidence: Some(0.3),
+            archived: Some(false),
+            query: Some(query.to_string()),
+        };
+
+        let results = store.search_by_text_with_embedding(query, filter, top_k).await?;
+        Ok(results.into_iter().map(|sm| sm.entry.content).collect())
     }
 
     pub async fn start_cycle(
