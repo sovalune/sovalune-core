@@ -1,0 +1,45 @@
+name: CI Schema
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate JSON Schemas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate JSON schemas
+        run: |
+          for f in schemas/*.json; do
+            echo "Validating $f..."
+            node -e "JSON.parse(require('fs').readFileSync('$f', 'utf8'))"
+          done
+
+      - name: Check schema structure
+        run: node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const schemasDir = path.join(__dirname, 'schemas');
+          const files = fs.readdirSync(schemasDir).filter(f => f.endsWith('.json'));
+          for (const file of files) {
+            const schema = JSON.parse(fs.readFileSync(path.join(schemasDir, file), 'utf8'));
+            if (!schema.name && !schema.title) {
+              console.log('Warning: ' + file + ' missing name/title');
+            }
+          }
+          console.log('All schemas validated successfully');
+        "

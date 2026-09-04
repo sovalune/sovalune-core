@@ -1,0 +1,51 @@
+name: CI/CD - Schema
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "migrations/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "migrations/**"
+
+jobs:
+  validate:
+    name: Validate Migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PostgreSQL
+        uses: harmon758/postgresql-action@v1
+        with:
+          postgresql version: "15"
+          postgresql db: sovalune_test
+          postgresql user: sovalune
+          postgresql password: test_password
+
+      - name: Install pgvector
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-15-pgvector
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://sovalune:test_password@localhost:5432/sovalune_test
+        run: |
+          for migration in migrations/*.sql; do
+            echo "Running $migration..."
+            psql "$DATABASE_URL" -f "$migration"
+          done
+
+      - name: Verify schema
+        env:
+          DATABASE_URL: postgresql://sovalune:test_password@localhost:5432/sovalune_test
+        run: |
+          echo "Checking tables..."
+          psql "$DATABASE_URL" -c "\dt" | grep -E "projects|sessions|messages|memory_entries|learning_cycles|training_artifacts"
+          
+          echo "Checking extensions..."
+          psql "$DATABASE_URL" -c "SELECT * FROM pg_extension WHERE extname IN ('vector', 'uuid-ossp', 'pg_trgm');"

@@ -1,0 +1,10 @@
+[package]
+name = "sovalune-storage-schema"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlx = { workspace = true }
+
+[lib]
+path = "src/lib.rs"

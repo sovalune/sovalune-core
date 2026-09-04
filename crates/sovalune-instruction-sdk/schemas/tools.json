@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Instruction Tools SDK",
+  "description": "JSON Schema definitions for Sovalune Instruction Tools",
+  "version": "0.1.0",
+  "tools": {
+    "memory_search": {
+      "description": "Search in Vector Memory",
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "tier": { "type": "string", "enum": ["verified_fact", "consolidated_knowledge", "raw_memory"] },
+          "top_k": { "type": "integer", "default": 5 }
+        },
+        "required": ["query"]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "content": { "type": "string" },
+            "score": { "type": "number" },
+            "tier": { "type": "string" }
+          }
+        }
+      }
+    },
+    "memory_write": {
+      "description": "Write new raw memory entry",
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string" },
+          "metadata": { "type": "object" }
+        },
+        "required": ["content"]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" }
+        }
+      }
+    },
+    "run_tests": {
+      "description": "Run tests on generated code",
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string" },
+          "language": { "type": "string" },
+          "test_cases": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["code", "language"]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "passed": { "type": "boolean" },
+          "output": { "type": "string" },
+          "errors": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "web_search": {
+      "description": "Search the web for information",
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "max_results": { "type": "integer", "default": 5 }
+        },
+        "required": ["query"]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "url": { "type": "string" },
+            "snippet": { "type": "string" }
+          }
+        }
+      }
+    },
+    "code_execute": {
+      "description": "Execute code in sandbox",
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string" },
+          "language": { "type": "string" },
+          "timeout_ms": { "type": "integer", "default": 5000 }
+        },
+        "required": ["code", "language"]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "output": { "type": "string" },
+          "error": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

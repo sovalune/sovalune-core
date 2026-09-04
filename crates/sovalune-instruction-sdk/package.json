@@ -1,0 +1,6 @@
+{
+  "name": "sovalune-instruction-sdk",
+  "version": "0.1.0",
+  "description": "Instruction Tools schema definitions for Sovalune AI agents",
+  "schemas": ["schemas/tools.json"]
+}
